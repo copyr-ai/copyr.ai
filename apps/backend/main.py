@@ -11,10 +11,8 @@ from datetime import datetime
 import asyncio
 import logging
 
-# Import our copyright analyzer and database components
+# Import our copyright analyzer
 from src.copyright_analyzer import CopyrightAnalyzer
-from src.database.cache_manager import CacheManager
-from src.background.scheduler import background_scheduler
 
 load_dotenv()
 
@@ -33,9 +31,22 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# Initialize copyright analyzer and cache manager
+# Initialize copyright analyzer
 copyright_analyzer = CopyrightAnalyzer("US")
-cache_manager = CacheManager()
+
+# Initialize database components with error handling
+cache_manager = None
+background_scheduler = None
+
+try:
+    from src.database.cache_manager import CacheManager
+    from src.background.scheduler import background_scheduler
+    cache_manager = CacheManager()
+    logger.info("Database components initialized successfully")
+except Exception as e:
+    logger.warning(f"Database initialization failed: {e}. Running without caching.")
+    cache_manager = None
+    background_scheduler = None
 
 app.add_middleware(
     CORSMiddleware,
@@ -48,12 +59,26 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     """Start background scheduler on application startup"""
-    background_scheduler.start()
+    if background_scheduler:
+        try:
+            background_scheduler.start()
+            logger.info("Background scheduler started successfully")
+        except Exception as e:
+            logger.warning(f"Failed to start background scheduler: {e}")
+    else:
+        logger.info("Background scheduler not available")
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Stop background scheduler on application shutdown"""
-    background_scheduler.shutdown()
+    if background_scheduler:
+        try:
+            background_scheduler.shutdown()
+            logger.info("Background scheduler stopped successfully")
+        except Exception as e:
+            logger.warning(f"Failed to stop background scheduler: {e}")
+    else:
+        logger.info("Background scheduler was not running")
 
 @app.get("/")
 async def root():
@@ -116,30 +141,31 @@ async def analyze_work(request: AnalyzeRequest):
     Analyze copyright status of a work with intelligent caching
     """
     try:
-        # Check cache first
-        search_query = f"{request.title} {request.author}"
-        cached_results = await cache_manager.get_cached_search(search_query, request.work_type)
-        
-        if cached_results:
-            # Return the first matching result from cache
-            for cached_work in cached_results:
-                if (cached_work.title.lower() in request.title.lower() or 
-                    request.title.lower() in cached_work.title.lower()):
-                    return CopyrightAnalysisResponse(
-                        title=cached_work.title,
-                        author_name=cached_work.author or request.author,
-                        publication_year=cached_work.publication_year,
-                        published=cached_work.publication_year is not None,
-                        country=request.country,
-                        year_of_death=cached_work.processed_data.get('year_of_death'),
-                        work_type=cached_work.work_type,
-                        status=cached_work.copyright_status or "Unknown",
-                        enters_public_domain=int(cached_work.public_domain_date) if cached_work.public_domain_date and cached_work.public_domain_date.isdigit() else None,
-                        source_links=cached_work.processed_data.get('source_links', {}),
-                        notes=f"Retrieved from cache - {cached_work.source_api}",
-                        confidence_score=cached_work.processed_data.get('confidence_score', 0.8),
-                        queried_at=datetime.utcnow().isoformat()
-                    )
+        # Check cache first (if available)
+        if cache_manager:
+            search_query = f"{request.title} {request.author}"
+            cached_results = await cache_manager.get_cached_search(search_query, request.work_type)
+            
+            if cached_results:
+                # Return the first matching result from cache
+                for cached_work in cached_results:
+                    if (cached_work.title.lower() in request.title.lower() or 
+                        request.title.lower() in cached_work.title.lower()):
+                        return CopyrightAnalysisResponse(
+                            title=cached_work.title,
+                            author_name=cached_work.author or request.author,
+                            publication_year=cached_work.publication_year,
+                            published=cached_work.publication_year is not None,
+                            country=request.country,
+                            year_of_death=cached_work.processed_data.get('year_of_death'),
+                            work_type=cached_work.work_type,
+                            status=cached_work.copyright_status or "Unknown",
+                            enters_public_domain=int(cached_work.public_domain_date) if cached_work.public_domain_date and cached_work.public_domain_date.isdigit() else None,
+                            source_links=cached_work.processed_data.get('source_links', {}),
+                            notes=f"Retrieved from cache - {cached_work.source_api}",
+                            confidence_score=cached_work.processed_data.get('confidence_score', 0.8),
+                            queried_at=datetime.utcnow().isoformat()
+                        )
         
         # Perform fresh analysis
         result = copyright_analyzer.analyze_work(
@@ -150,32 +176,33 @@ async def analyze_work(request: AnalyzeRequest):
             country=request.country
         )
         
-        # Cache the result for future use
-        try:
-            from src.database.models import WorkCache
-            # Use normalized identifier to prevent duplicates
-            normalized_id = cache_manager._normalize_work_identifier(request.title, request.author)
-            
-            work_cache = WorkCache(
-                title=result.title,
-                author=result.author_name,
-                publication_year=result.publication_year,
-                work_type=result.work_type,
-                copyright_status=result.status,
-                public_domain_date=str(result.enters_public_domain) if result.enters_public_domain else None,
-                source_api="copyright_analyzer",
-                source_id=normalized_id,
-                raw_data=result.to_dict(),
-                processed_data={
-                    'confidence_score': result.confidence_score,
-                    'source_links': result.source_links,
-                    'year_of_death': result.year_of_death
-                }
-            )
-            
-            await cache_manager.cache_work(work_cache, "copyright_analyzer", normalized_id)
-        except Exception as cache_error:
-            logger.warning(f"Cache operation failed: {cache_error}")
+        # Cache the result for future use (if cache is available)
+        if cache_manager:
+            try:
+                from src.database.models import WorkCache
+                # Use normalized identifier to prevent duplicates
+                normalized_id = cache_manager._normalize_work_identifier(request.title, request.author)
+                
+                work_cache = WorkCache(
+                    title=result.title,
+                    author=result.author_name,
+                    publication_year=result.publication_year,
+                    work_type=result.work_type,
+                    copyright_status=result.status,
+                    public_domain_date=str(result.enters_public_domain) if result.enters_public_domain else None,
+                    source_api="copyright_analyzer",
+                    source_id=normalized_id,
+                    raw_data=result.to_dict(),
+                    processed_data={
+                        'confidence_score': result.confidence_score,
+                        'source_links': result.source_links,
+                        'year_of_death': result.year_of_death
+                    }
+                )
+                
+                await cache_manager.cache_work(work_cache, "copyright_analyzer", normalized_id)
+            except Exception as cache_error:
+                logger.warning(f"Cache operation failed: {cache_error}")
         
         return CopyrightAnalysisResponse(**result.to_dict())
         
@@ -198,38 +225,42 @@ async def analyze_works_batch(request: BatchAnalyzeRequest):
         results = []
         uncached_works = []
         
-        # Separate cached and uncached works
-        for work in request.works:
-            search_query = f"{work.title} {work.author}"
-            cached_results = await cache_manager.get_cached_search(search_query, "auto")
-            
-            # Look for matching cached result
-            cached_match = None
-            if cached_results:
-                for cached_work in cached_results:
-                    if (cached_work.title.lower() in work.title.lower() or 
-                        work.title.lower() in cached_work.title.lower()):
-                        cached_match = cached_work
-                        break
-            
-            if cached_match:
-                results.append({
-                    'title': cached_match.title,
-                    'author_name': cached_match.author or work.author,
-                    'publication_year': cached_match.publication_year,
-                    'published': cached_match.publication_year is not None,
-                    'country': request.country,
-                    'year_of_death': cached_match.processed_data.get('year_of_death'),
-                    'work_type': cached_match.work_type,
-                    'status': cached_match.copyright_status or "Unknown",
-                    'enters_public_domain': int(cached_match.public_domain_date) if cached_match.public_domain_date and cached_match.public_domain_date.isdigit() else None,
-                    'source_links': cached_match.processed_data.get('source_links', {}),
-                    'notes': f"Retrieved from cache - {cached_match.source_api}",
-                    'confidence_score': cached_match.processed_data.get('confidence_score', 0.8),
-                    'queried_at': datetime.utcnow().isoformat()
-                })
-            else:
-                uncached_works.append((work.title, work.author))
+        # Separate cached and uncached works (if cache is available)
+        if cache_manager:
+            for work in request.works:
+                search_query = f"{work.title} {work.author}"
+                cached_results = await cache_manager.get_cached_search(search_query, "auto")
+                
+                # Look for matching cached result
+                cached_match = None
+                if cached_results:
+                    for cached_work in cached_results:
+                        if (cached_work.title.lower() in work.title.lower() or 
+                            work.title.lower() in cached_work.title.lower()):
+                            cached_match = cached_work
+                            break
+                
+                if cached_match:
+                    results.append({
+                        'title': cached_match.title,
+                        'author_name': cached_match.author or work.author,
+                        'publication_year': cached_match.publication_year,
+                        'published': cached_match.publication_year is not None,
+                        'country': request.country,
+                        'year_of_death': cached_match.processed_data.get('year_of_death'),
+                        'work_type': cached_match.work_type,
+                        'status': cached_match.copyright_status or "Unknown",
+                        'enters_public_domain': int(cached_match.public_domain_date) if cached_match.public_domain_date and cached_match.public_domain_date.isdigit() else None,
+                        'source_links': cached_match.processed_data.get('source_links', {}),
+                        'notes': f"Retrieved from cache - {cached_match.source_api}",
+                        'confidence_score': cached_match.processed_data.get('confidence_score', 0.8),
+                        'queried_at': datetime.utcnow().isoformat()
+                    })
+                else:
+                    uncached_works.append((work.title, work.author))
+        else:
+            # No cache available, analyze all works
+            uncached_works = [(work.title, work.author) for work in request.works]
         
         # Analyze uncached works
         if uncached_works:
@@ -239,32 +270,33 @@ async def analyze_works_batch(request: BatchAnalyzeRequest):
             
             # Cache and add fresh results
             for i, result in enumerate(fresh_results):
-                # Cache the result
-                try:
-                    from src.database.models import WorkCache
-                    original_work = uncached_works[i]
-                    normalized_id = cache_manager._normalize_work_identifier(original_work[0], original_work[1])
-                    
-                    work_cache = WorkCache(
-                        title=result.title,
-                        author=result.author_name,
-                        publication_year=result.publication_year,
-                        work_type=result.work_type,
-                        copyright_status=result.status,
-                        public_domain_date=str(result.enters_public_domain) if result.enters_public_domain else None,
-                        source_api="copyright_analyzer",
-                        source_id=normalized_id,
-                        raw_data=result.to_dict(),
-                        processed_data={
-                            'confidence_score': result.confidence_score,
-                            'source_links': result.source_links,
-                            'year_of_death': result.year_of_death
-                        }
-                    )
-                    
-                    await cache_manager.cache_work(work_cache, "copyright_analyzer", normalized_id)
-                except Exception as cache_error:
-                    logger.warning(f"Batch cache operation failed: {cache_error}")
+                # Cache the result (if cache is available)
+                if cache_manager:
+                    try:
+                        from src.database.models import WorkCache
+                        original_work = uncached_works[i]
+                        normalized_id = cache_manager._normalize_work_identifier(original_work[0], original_work[1])
+                        
+                        work_cache = WorkCache(
+                            title=result.title,
+                            author=result.author_name,
+                            publication_year=result.publication_year,
+                            work_type=result.work_type,
+                            copyright_status=result.status,
+                            public_domain_date=str(result.enters_public_domain) if result.enters_public_domain else None,
+                            source_api="copyright_analyzer",
+                            source_id=normalized_id,
+                            raw_data=result.to_dict(),
+                            processed_data={
+                                'confidence_score': result.confidence_score,
+                                'source_links': result.source_links,
+                                'year_of_death': result.year_of_death
+                            }
+                        )
+                        
+                        await cache_manager.cache_work(work_cache, "copyright_analyzer", normalized_id)
+                    except Exception as cache_error:
+                        logger.warning(f"Batch cache operation failed: {cache_error}")
                 
                 results.append(result.to_dict())
         
@@ -342,6 +374,15 @@ async def get_cache_stats():
     """
     Get cache statistics and performance metrics
     """
+    if not cache_manager:
+        return {
+            "cached_works": 0,
+            "cached_searches": 0,
+            "cache_enabled": False,
+            "background_scheduler_running": False,
+            "message": "Cache not available - running without database"
+        }
+    
     try:
         from src.database.config import supabase
         
@@ -353,7 +394,7 @@ async def get_cache_stats():
             "cached_works": work_cache_count.count if hasattr(work_cache_count, 'count') else 0,
             "cached_searches": search_cache_count.count if hasattr(search_cache_count, 'count') else 0,
             "cache_enabled": True,
-            "background_scheduler_running": background_scheduler.scheduler.running if background_scheduler.scheduler else False
+            "background_scheduler_running": background_scheduler.scheduler.running if background_scheduler and background_scheduler.scheduler else False
         }
     except Exception as e:
         return {
@@ -366,6 +407,12 @@ async def manually_refresh_cache(source_api: str, source_id: str):
     """
     Manually refresh a specific work's cache
     """
+    if not background_scheduler:
+        raise HTTPException(
+            status_code=503,
+            detail="Cache refresh not available - background scheduler not running"
+        )
+    
     try:
         success = await background_scheduler.manual_refresh_work(source_api, source_id)
         
@@ -390,6 +437,12 @@ async def clear_all_cache():
     """
     Clear all cache entries (works and search queries)
     """
+    if not cache_manager:
+        raise HTTPException(
+            status_code=503,
+            detail="Cache operations not available - running without database"
+        )
+    
     try:
         from src.database.config import supabase
         
@@ -418,6 +471,12 @@ async def clear_works_cache():
     """
     Clear only work cache entries
     """
+    if not cache_manager:
+        raise HTTPException(
+            status_code=503,
+            detail="Cache operations not available - running without database"
+        )
+    
     try:
         from src.database.config import supabase
         
@@ -440,6 +499,12 @@ async def clear_search_cache():
     """
     Clear only search query cache entries
     """
+    if not cache_manager:
+        raise HTTPException(
+            status_code=503,
+            detail="Cache operations not available - running without database"
+        )
+    
     try:
         from src.database.config import supabase
         
@@ -462,6 +527,12 @@ async def clear_expired_cache():
     """
     Clear only expired cache entries
     """
+    if not cache_manager:
+        raise HTTPException(
+            status_code=503,
+            detail="Cache operations not available - running without database"
+        )
+    
     try:
         deleted_count = await cache_manager.cleanup_expired_cache(days_old=0)  # Clear all expired
         
