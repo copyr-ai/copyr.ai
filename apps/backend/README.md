@@ -1,92 +1,85 @@
-# Copyr.ai - Multi-Country Copyright Analyzer
+# Copyright Analyzer API
 
-A scalable, country-aware Python system that queries reliable APIs to determine public domain status of literary and musical works across different jurisdictions.
+A production-ready FastAPI service for analyzing copyright status of literary and musical works with intelligent caching and background processing.
 
 ## Features
 
-- **🌍 Multi-country support**: Extensible architecture for different copyright jurisdictions
-- **📚 Multi-source data gathering**: Queries Library of Congress, HathiTrust, and MusicBrainz APIs
-- **⚖️ Country-specific copyright law**: Implements jurisdiction-specific copyright calculations
-- **🎵 Literary and Musical works**: Supports both books and musical compositions
-- **📊 Normalized output**: Consistent JSON format across all countries and sources
-- **🎯 High confidence scoring**: Weighted confidence based on source reliability
-- **⚡ Batch processing**: Analyze multiple works efficiently
-- **🚀 REST API**: FastAPI-powered endpoints for web integration
-
-## Supported Countries
-
-- **🇺🇸 United States**: Title 17 USC §304 and §305 compliance
-- *More countries coming soon...*
+- **Multi-source Analysis**: Queries Library of Congress, HathiTrust, and MusicBrainz APIs
+- **Intelligent Caching**: Supabase-powered cache with automatic expiration and refresh
+- **Background Processing**: Scheduled jobs for cache maintenance and pre-population
+- **Batch Processing**: Analyze multiple works efficiently
+- **Country Support**: Extensible framework for different copyright jurisdictions (US implemented)
 
 ## Quick Start
+
+### Prerequisites
+
+- Python 3.8+
+- Supabase account and database
+- Environment variables configured
 
 ### Installation
 
 ```bash
+# Install dependencies
 pip install -r requirements.txt
-```
 
-### Basic Usage
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your Supabase credentials
 
-```python
-from src.copyright_analyzer import CopyrightAnalyzer
-
-# Initialize analyzer for specific country
-analyzer = CopyrightAnalyzer("US")
-
-# Analyze a literary work
-result = analyzer.analyze_work("The Great Gatsby", "F. Scott Fitzgerald")
-print(f"Status: {result.status}")
-print(f"Enters PD: {result.enters_public_domain}")
-
-# Analyze a musical work
-result = analyzer.analyze_work("Symphony No. 9", "Beethoven", work_type="musical")
-```
-
-### Command Line Interface
-
-```bash
-# Analyze a single work
-python -m src.copyright_analyzer "Pride and Prejudice" "Jane Austen" --country US --verbose
-
-# List supported countries
-python -m src.copyright_analyzer --list-countries
-
-# Musical work analysis
-python -m src.copyright_analyzer "Symphony No. 9" "Beethoven" --work-type musical --country US
-
-# Save results to file
-python -m src.copyright_analyzer "Dracula" "Bram Stoker" --output results.json --country US
-```
-
-### REST API Usage
-
-Start the FastAPI server:
-```bash
+# Run the application
 python main.py
 ```
 
-Access the interactive API documentation at: **http://localhost:8000/docs**
+### Database Setup
 
-#### Available Endpoints
+1. Create tables in your Supabase dashboard using `sql/create_tables.sql`
+2. Ensure your Supabase URL and API key are configured in `.env`
 
-- **POST `/api/analyze`** - Analyze single work
-- **POST `/api/analyze/batch`** - Batch analysis of multiple works
-- **GET `/api/countries`** - List supported countries
-- **GET `/api/copyright-info/{country_code}`** - Get country-specific copyright rules
-- **GET `/api/examples`** - Get example works for testing
-- **GET `/api/status`** - System status
+## API Endpoints
 
-#### Example API Request
+### Core Analysis
+- `POST /api/analyze` - Analyze single work
+- `POST /api/analyze/batch` - Analyze multiple works
 
-```json
-{
-  "title": "Pride and Prejudice",
-  "author": "Jane Austen",
-  "work_type": "literary",
-  "country": "US",
-  "verbose": true
-}
+### Cache Management
+- `GET /api/cache/stats` - View cache statistics
+- `DELETE /api/cache/clear` - Clear all cache
+- `DELETE /api/cache/clear/works` - Clear work cache only
+- `DELETE /api/cache/clear/searches` - Clear search cache only
+- `DELETE /api/cache/clear/expired` - Clear expired entries only
+
+### Information
+- `GET /api/status` - API health check
+- `GET /api/examples` - Sample works for testing
+- `GET /api/countries` - Supported countries
+- `GET /docs` - Interactive API documentation
+
+## Configuration
+
+### Environment Variables
+
+```bash
+SUPABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
+PYTHON_ENV=production
+```
+
+### Cache Settings
+
+- Work cache: 7 days default expiration
+- Search cache: 24 hours default expiration
+- Background refresh: Every 6 hours
+- Cache cleanup: Daily at 2 AM
+- Popular search pre-population: Daily at 3 AM
+
+## Architecture
+
+```
+User Request → Cache Check → API Analysis → Cache Store → Response
+                    ↓
+Background Jobs → Cache Refresh → Keep Data Fresh
 ```
 
 ## Output Format

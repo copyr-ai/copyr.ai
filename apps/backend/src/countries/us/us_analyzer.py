@@ -79,7 +79,7 @@ class USAnalyzer(BaseCountryAnalyzer):
         if not hathi_response and verbose:
             self._log_verbose("2. Skipping HathiTrust (no OCLC found)", verbose)
         
-        # Step 3: Query MusicBrainz if musical work or auto-detect
+        # Step 3: Query MusicBrainz for works (if musical/auto) and always for artist details
         musicbrainz_response = None
         musicbrainz_artist_response = None
         
@@ -90,16 +90,16 @@ class USAnalyzer(BaseCountryAnalyzer):
             if verbose and musicbrainz_response.success:
                 works_count = len(musicbrainz_response.data.get('works', []) if musicbrainz_response.data else [])
                 self._log_verbose(f"   Found {works_count} musical works", verbose)
-            
-            # Get composer/artist details for death date
-            self._log_verbose("4. Querying MusicBrainz for artist details...", verbose)
-            musicbrainz_artist_response = self.api_clients['musicbrainz'].search_artists(author)
-            if verbose and musicbrainz_artist_response.success:
-                best_artist = musicbrainz_artist_response.data.get('best_match') if musicbrainz_artist_response.data else None
-                if best_artist and best_artist.get('death_year'):
-                    self._log_verbose(f"   Found death year: {best_artist['death_year']}", verbose)
         elif verbose:
-            self._log_verbose("3. Skipping MusicBrainz (literary work)", verbose)
+            self._log_verbose("3. Skipping MusicBrainz works (literary work)", verbose)
+        
+        # Always query MusicBrainz for artist details to get death dates (even for literary works)
+        self._log_verbose("4. Querying MusicBrainz for artist details...", verbose)
+        musicbrainz_artist_response = self.api_clients['musicbrainz'].search_artists(author)
+        if verbose and musicbrainz_artist_response.success:
+            best_artist = musicbrainz_artist_response.data.get('best_match') if musicbrainz_artist_response.data else None
+            if best_artist and best_artist.get('death_year'):
+                self._log_verbose(f"   Found death year: {best_artist['death_year']}", verbose)
         
         # Step 4: Merge and normalize metadata
         self._log_verbose("5. Merging metadata from sources...", verbose)
@@ -107,7 +107,9 @@ class USAnalyzer(BaseCountryAnalyzer):
             loc_response=loc_response,
             hathi_response=hathi_response,
             musicbrainz_response=musicbrainz_response,
-            musicbrainz_artist_response=musicbrainz_artist_response
+            musicbrainz_artist_response=musicbrainz_artist_response,
+            search_title=title,
+            search_author=author
         )
         
         if verbose:

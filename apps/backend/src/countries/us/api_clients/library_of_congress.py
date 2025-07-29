@@ -37,7 +37,7 @@ class LibraryOfCongressClient(BaseAPIClient):
         """
         self._rate_limit()
         
-        # Construct search query
+        # Construct search query with exact match for better results
         query = f'"{title}" "{author}"'
         search_url = f"{self.BASE_URL}{self.SEARCH_ENDPOINT}"
         
@@ -107,29 +107,27 @@ class LibraryOfCongressClient(BaseAPIClient):
         """Parse individual LOC catalog item"""
         try:
             # Extract basic metadata
-            title = item.get('title', [''])[0] if item.get('title') else ''
+            title_raw = item.get('title', '')
+            title = title_raw[0] if isinstance(title_raw, list) and title_raw else str(title_raw) if title_raw else ''
             contributors = item.get('contributor', [])
             dates = item.get('date', [])
             
             # Parse publication year
             pub_year = None
+            import re
             for date_str in dates:
-                if isinstance(date_str, str) and date_str.isdigit():
-                    pub_year = int(date_str)
-                    break
-                elif isinstance(date_str, str):
-                    # Try to extract year from date string
-                    import re
-                    year_match = re.search(r'\b(19|20)\d{2}\b', date_str)
-                    if year_match:
-                        pub_year = int(year_match.group())
+                if isinstance(date_str, str):
+                    if date_str.isdigit():
+                        pub_year = int(date_str)
                         break
+                    else:
+                        year_match = re.search(r'\b(1[5-9]\d{2}|20[0-9]\d)\b', date_str)
+                        if year_match:
+                            pub_year = int(year_match.group())
+                            break
             
             # Parse authors
-            authors = []
-            for contrib in contributors:
-                if isinstance(contrib, str):
-                    authors.append(contrib)
+            authors = [contrib for contrib in contributors if isinstance(contrib, str)]
             
             # Get URL
             url = item.get('id', '')
@@ -146,9 +144,8 @@ class LibraryOfCongressClient(BaseAPIClient):
                 'raw_data': item
             }
             
-        except Exception as e:
-            # Log error but continue processing other items
-            print(f"Error parsing LOC item: {e}")
+        except Exception:
+            # Skip malformed items silently
             return None
     
     def _find_best_match(self, matches: List[Dict[str, Any]], target_title: str, target_author: str) -> Dict[str, Any]:
@@ -156,26 +153,104 @@ class LibraryOfCongressClient(BaseAPIClient):
         if not matches:
             return None
         
-        # Simple scoring based on title and author similarity
+        # Advanced scoring based on title and author similarity
         def score_match(item):
             score = 0
-            item_title = item.get('title', '').lower()
-            item_authors = [a.lower() for a in item.get('authors', [])]
+            item_title = item.get('title', '').lower().strip()
+            item_authors = [a.lower().strip() for a in item.get('authors', [])]
+            target_title_lower = target_title.lower().strip()
+            target_author_lower = target_author.lower().strip()
             
-            # Title similarity (simple substring matching)
-            if target_title.lower() in item_title or item_title in target_title.lower():
-                score += 50
+            # Title similarity scoring
+            title_score = 0
             
-            # Author similarity
-            target_author_lower = target_author.lower()
-            for author in item_authors:
-                if target_author_lower in author or author in target_author_lower:
-                    score += 40
-                    break
+            # Clean titles for comparison (remove punctuation and extra spaces)
+            import re
+            clean_target = re.sub(r'[^\w\s]', '', target_title_lower).strip()
+            clean_item = re.sub(r'[^\w\s]', '', item_title).strip()
             
-            # Prefer items with publication year
+            # Exact match gets highest score
+            if clean_item == clean_target:
+                title_score = 100
+            # One contains the other with good length ratio
+            elif clean_target in clean_item or clean_item in clean_target:
+                # Award points based on how well they match
+                min_len = min(len(clean_item), len(clean_target))
+                max_len = max(len(clean_item), len(clean_target))
+                length_ratio = min_len / max_len if max_len > 0 else 0
+                
+                if length_ratio > 0.2:  # At least 20% overlap
+                    title_score = int(85 * length_ratio)
+            # Word overlap scoring
+            else:
+                target_words = set(target_title_lower.split())
+                item_words = set(item_title.split())
+                
+                # Remove very short words that don't matter
+                target_words = {w for w in target_words if len(w) > 2}
+                item_words = {w for w in item_words if len(w) > 2}
+                
+                if target_words and item_words:
+                    overlap = len(target_words & item_words)
+                    total_unique = len(target_words | item_words)
+                    word_similarity = overlap / total_unique if total_unique > 0 else 0
+                    title_score = int(60 * word_similarity)
+            
+            score += title_score
+            
+            # Author similarity scoring  
+            author_score = 0
+            best_author_match = 0
+            
+            for i, author in enumerate(item_authors):
+                current_score = 0
+                
+                # Exact match
+                if author == target_author_lower:
+                    current_score = 100
+                # Last name, first name format matching
+                elif ',' in author:
+                    # Parse "last, first" format
+                    parts = [p.strip() for p in author.split(',')]
+                    if len(parts) >= 2:
+                        last_name = parts[0]
+                        first_name = parts[1]
+                        
+                        # Check if target contains both names
+                        if (last_name in target_author_lower and 
+                            first_name in target_author_lower):
+                            current_score = 90
+                        elif last_name in target_author_lower:
+                            current_score = 60
+                        elif first_name in target_author_lower:
+                            current_score = 40
+                # Regular substring matching with length check
+                elif target_author_lower in author or author in target_author_lower:
+                    min_len = min(len(author), len(target_author_lower))
+                    max_len = max(len(author), len(target_author_lower))
+                    length_ratio = min_len / max_len if max_len > 0 else 0
+                    
+                    if length_ratio > 0.4:  # At least 40% overlap for authors
+                        current_score = int(70 * length_ratio)
+                
+                # Bonus for being the primary author (first in list)
+                if i == 0 and current_score > 0:
+                    current_score = int(current_score * 1.2)  # 20% bonus
+                
+                best_author_match = max(best_author_match, current_score)
+            
+            # Heavy penalty if first author doesn't match at all but title does
+            if (title_score > 50 and item_authors and 
+                best_author_match == 0):
+                # This might be a wrong match - reduce total score significantly
+                score = int(score * 0.3)
+            
+            score += best_author_match
+            
+            # Bonus points for having publication year
             if item.get('publication_year'):
-                score += 10
+                score += 5
+            
             
             return score
         
