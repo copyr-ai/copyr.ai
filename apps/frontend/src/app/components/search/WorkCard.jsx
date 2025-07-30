@@ -2,10 +2,51 @@
 
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { Calendar, User, Globe, Clock, ExternalLink, Eye } from 'lucide-react';
+import { 
+  Calendar, User, Globe, Clock, ExternalLink, Eye,
+  CheckCircle, XCircle, AlertCircle, Book, Music, Video, Image 
+} from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { getStatusIcon, getCategoryIcon, getStatusColor } from '../../lib/workUtils';
+
+// Utility functions
+const getStatusIcon = (status) => {
+  switch (status) {
+    case 'Public Domain':
+      return <CheckCircle className="h-5 w-5 text-green-500" />;
+    case 'Under Copyright':
+      return <XCircle className="h-5 w-5 text-red-500" />;
+    default:
+      return <AlertCircle className="h-5 w-5 text-yellow-500" />;
+  }
+};
+
+const getCategoryIcon = (category) => {
+  switch (category) {
+    case 'Literature':
+      return <Book className="h-5 w-5" />;
+    case 'Music':
+      return <Music className="h-5 w-5" />;
+    case 'Film':
+      return <Video className="h-5 w-5" />;
+    case 'Art':
+    case 'Photography':
+      return <Image className="h-5 w-5" />;
+    default:
+      return <Book className="h-5 w-5" />;
+  }
+};
+
+const getStatusColor = (status) => {
+  switch (status) {
+    case 'Public Domain':
+      return 'bg-green-100 text-green-700';
+    case 'Under Copyright':
+      return 'bg-red-100 text-red-700';
+    default:
+      return 'bg-yellow-100 text-yellow-700';
+  }
+};
 
 export default function WorkCard({ work, variant = 'full', index = 0 }) {
   const router = useRouter();
