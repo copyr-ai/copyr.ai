@@ -1,0 +1,110 @@
+{
+  "works": [
+    {
+      "id": 1,
+      "slug": "the-great-gatsby",
+      "title": "The Great Gatsby",
+      "author_name": "F. Scott Fitzgerald",
+      "publication_year": 1925,
+      "published": true,
+      "country": "US",
+      "year_of_death": 1940,
+      "work_type": "individual",
+      "status": "Under Copyright",
+      "enters_public_domain": 2021,
+      "source_links": {
+        "loc": "https://www.loc.gov/books/?q=The Great Gatsby",
+        "hathitrust": "https://catalog.hathitrust.org/Record/001234567"
+      },
+      "notes": "Published in 1925 by individual author. Term is 95 years under §304; PD Jan 1, 2021 per §305.",
+      "confidence_score": 0.95,
+      "queried_at": "2024-01-15T12:00:00Z",
+      "category": "Literature"
+    },
+    {
+      "id": 2,
+      "slug": "rhapsody-in-blue",
+      "title": "Rhapsody in Blue",
+      "author_name": "George Gershwin",
+      "publication_year": 1924,
+      "published": true,
+      "country": "US",
+      "year_of_death": 1937,
+      "work_type": "individual",
+      "status": "Public Domain",
+      "enters_public_domain": 2020,
+      "source_links": {
+        "musicbrainz": "https://musicbrainz.org/work/12345",
+        "loc": "https://www.loc.gov/music/?q=Rhapsody in Blue"
+      },
+      "notes": "Published in 1924. Entered public domain on Jan 1, 2020 (95 years after publication).",
+      "confidence_score": 0.92,
+      "queried_at": "2024-01-15T12:05:00Z",
+      "category": "Music"
+    },
+    {
+      "id": 3,
+      "slug": "the-sun-also-rises",
+      "title": "The Sun Also Rises",
+      "author_name": "Ernest Hemingway",
+      "publication_year": 1926,
+      "published": true,
+      "country": "US",
+      "year_of_death": 1961,
+      "work_type": "individual",
+      "status": "Under Copyright",
+      "enters_public_domain": 2022,
+      "source_links": {
+        "loc": "https://www.loc.gov/books/?q=The Sun Also Rises Hemingway",
+        "hathitrust": "https://catalog.hathitrust.org/Record/001234568"
+      },
+      "notes": "Published in 1926 by individual author. Term is 95 years under §304; PD Jan 1, 2022 per §305.",
+      "confidence_score": 0.89,
+      "queried_at": "2024-01-15T12:10:00Z",
+      "category": "Literature"
+    },
+    {
+      "id": 4,
+      "slug": "casablanca",
+      "title": "Casablanca",
+      "author_name": "Michael Curtiz (Director)",
+      "publication_year": 1942,
+      "published": true,
+      "country": "US",
+      "year_of_death": 1962,
+      "work_type": "corporate",
+      "status": "Under Copyright",
+      "enters_public_domain": 2038,
+      "source_links": {
+        "loc": "https://www.loc.gov/film/?q=Casablanca 1942"
+      },
+      "notes": "Corporate work published in 1942. Term is 95 years from publication; PD Jan 1, 2038.",
+      "confidence_score": 0.87,
+      "queried_at": "2024-01-15T12:15:00Z",
+      "category": "Film"
+    },
+    {
+      "id": 5,
+      "slug": "american-gothic",
+      "title": "American Gothic",
+      "author_name": "Grant Wood",
+      "publication_year": 1930,
+      "published": true,
+      "country": "US",
+      "year_of_death": 1942,
+      "work_type": "individual",
+      "status": "Under Copyright",
+      "enters_public_domain": 2026,
+      "source_links": {
+        "loc": "https://www.loc.gov/art/?q=American Gothic Grant Wood"
+      },
+      "notes": "Artwork created in 1930. Based on artist's death year (1942), enters PD in 2013 (life + 70 years).",
+      "confidence_score": 0.78,
+      "queried_at": "2024-01-15T12:20:00Z",
+      "category": "Art"
+    }
+  ],
+  "categories": ["All", "Literature", "Music", "Film", "Art", "Photography"],
+  "countries": ["All", "US", "UK", "CA", "DE"],
+  "statuses": ["All", "Public Domain", "Under Copyright", "Unknown"]
+}

@@ -138,6 +138,16 @@
   }
 }
 
+/* Hide scrollbars but keep scroll functionality */
+html {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+}
+
+html::-webkit-scrollbar {
+  display: none; /* Safari and Chrome */
+}
+
 /* Original system font styling */
 @layer base {
   html {
@@ -231,6 +241,7 @@
     background-position: 0 0, 10px 10px;
   }
   
+
   /* Custom Modern Cursor - Clean Implementation */
   * {
     cursor: none !important;
@@ -274,5 +285,24 @@
     mix-blend-mode: multiply;
     will-change: transform;
     transform: translateZ(0);
+  }
+
+  /* Animated Arrow */
+  @keyframes arrow-float {
+    0%, 100% {
+      transform: translateX(0px);
+    }
+    50% {
+      transform: translateX(4px);
+    }
+  }
+
+  .animate-arrow {
+    animation: arrow-float 2s ease-in-out infinite;
+  }
+
+  .group:hover .animate-arrow {
+    animation: none;
+    transform: translateX(6px);
   }
 }
