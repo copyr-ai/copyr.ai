@@ -1,30 +1,15 @@
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import lunr from 'lunr';
 
 export default function useSearch(data) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   
-  // Initialize state from URL params with proper decoding (handle double encoding)
-  const [searchQuery, setSearchQuery] = useState(() => {
-    const rawQuery = searchParams.get('q') || '';
-    try {
-      // Handle double encoding by decoding twice if needed
-      let decoded = decodeURIComponent(rawQuery);
-      // If it still contains encoded characters, decode again
-      if (decoded.includes('%')) {
-        decoded = decodeURIComponent(decoded);
-      }
-      return decoded.replace(/\+/g, ' ');
-    } catch {
-      // Fallback if decoding fails
-      return rawQuery.replace(/\+/g, ' ');
-    }
-  });
-  const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || 'All');
-  const [selectedCountry, setSelectedCountry] = useState(searchParams.get('country') || 'All');
-  const [selectedStatus, setSelectedStatus] = useState(searchParams.get('status') || 'All');
+  // Initialize state - will be updated from URL params after hydration
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedCountry, setSelectedCountry] = useState('All');
+  const [selectedStatus, setSelectedStatus] = useState('All');
   const [searchResults, setSearchResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -48,12 +33,15 @@ export default function useSearch(data) {
     setSearchIndex(idx);
   }, [data]);
 
-  // Handle URL params on initial load and when searchParams change
+  // Handle URL params on initial load (client-side only)
   useEffect(() => {
-    const query = searchParams.get('q');
-    const category = searchParams.get('category');
-    const country = searchParams.get('country');
-    const status = searchParams.get('status');
+    if (typeof window === 'undefined') return;
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const query = urlParams.get('q');
+    const category = urlParams.get('category');
+    const country = urlParams.get('country');
+    const status = urlParams.get('status');
     
     if (query || category || country || status) {
       // Properly decode the query parameter (handle double encoding)
@@ -66,12 +54,10 @@ export default function useSearch(data) {
           }
           const finalQuery = decodedQuery.replace(/\+/g, ' ');
           setSearchQuery(finalQuery);
-          console.log('URL search query decoded:', finalQuery); // Debug log
         } catch (error) {
           // Fallback if decoding fails
           const fallbackQuery = query.replace(/\+/g, ' ');
           setSearchQuery(fallbackQuery);
-          console.log('URL search query fallback:', fallbackQuery); // Debug log
         }
       }
       
@@ -87,7 +73,7 @@ export default function useSearch(data) {
         performSearch(false); // Don't scroll on initial load
       }, 100);
     }
-  }, [searchParams, searchIndex]); // Added searchIndex dependency
+  }, [searchIndex]); // Added searchIndex dependency
 
   // Update URL when search params change
   const updateURL = (query, category, country, status) => {

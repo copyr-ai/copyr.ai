@@ -3,8 +3,12 @@
 import * as React from "react"
 import * as SelectPrimitive from "@radix-ui/react-select"
 import { Check, ChevronDown, ChevronUp } from "lucide-react"
+import { clsx } from "clsx"
+import { twMerge } from "tailwind-merge"
 
-import { cn } from "@/lib/utils"
+function cn(...inputs) {
+  return twMerge(clsx(inputs));
+}
 
 function Select({
   ...props
