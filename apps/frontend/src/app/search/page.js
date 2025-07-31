@@ -4,80 +4,41 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import SearchBar from '../components/search/SearchBar';
-import SearchFilters from '../components/search/SearchFilters';
-import SearchResults from '../components/search/SearchResults';
-import WorkCard from '../components/search/WorkCard';
+import SearchBar from './SearchBar';
+import SearchFilters from './SearchFilters';
+import SearchResults from './SearchResults';
+import WorkCard from './WorkCard';
 import useSearch from '../../hooks/useSearch';
 import mockData from '../../data/mockWorks.json';
 
-// Custom cursor hook with performance optimization
+// Simplified cursor hook for search page performance
 const useCustomCursor = () => {
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-  const [isHovering, setIsHovering] = useState(false);
-  const [isOverFooter, setIsOverFooter] = useState(false);
-  const rafRef = useRef(null);
-  const lastUpdate = useRef(0);
-
+  const cursorRef = useRef(null);
+  const blurRef = useRef(null);
+  
   useEffect(() => {
     const updateMousePosition = (e) => {
-      // Throttle updates using requestAnimationFrame
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
+      if (cursorRef.current) {
+        cursorRef.current.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
       }
-      
-      rafRef.current = requestAnimationFrame(() => {
-        const now = Date.now();
-        // Limit updates to 60fps max
-        if (now - lastUpdate.current > 16) {
-          setMousePosition({ x: e.clientX, y: e.clientY });
-          
-          // Check footer less frequently to improve performance
-          if (now - lastUpdate.current > 50) {
-            const footerElement = document.querySelector('footer');
-            if (footerElement) {
-              const footerRect = footerElement.getBoundingClientRect();
-              const isInFooter = e.clientY >= footerRect.top && 
-                                e.clientY <= footerRect.bottom &&
-                                e.clientX >= footerRect.left && 
-                                e.clientX <= footerRect.right;
-              setIsOverFooter(isInFooter);
-            }
-          }
-          lastUpdate.current = now;
-        }
-      });
+      if (blurRef.current) {
+        blurRef.current.style.transform = `translate(${e.clientX - 60}px, ${e.clientY - 60}px)`;
+      }
     };
     
-    const handleMouseEnter = () => setIsHovering(true);
-    const handleMouseLeave = () => setIsHovering(false);
-    
-    // Use passive listeners for better performance
+    // Use passive listener for best performance
     window.addEventListener('mousemove', updateMousePosition, { passive: true });
     
-    const interactiveElements = document.querySelectorAll('button, a, [role="button"]');
-    interactiveElements.forEach(el => {
-      el.addEventListener('mouseenter', handleMouseEnter, { passive: true });
-      el.addEventListener('mouseleave', handleMouseLeave, { passive: true });
-    });
-    
     return () => {
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
-      }
       window.removeEventListener('mousemove', updateMousePosition);
-      interactiveElements.forEach(el => {
-        el.removeEventListener('mouseenter', handleMouseEnter);
-        el.removeEventListener('mouseleave', handleMouseLeave);
-      });
     };
   }, []);
 
-  return { mousePosition, isHovering, isOverFooter };
+  return { cursorRef, blurRef };
 };
 
 export default function SearchPage() {
-  const { mousePosition, isHovering, isOverFooter } = useCustomCursor();
+  const { cursorRef, blurRef } = useCustomCursor();
   const {
     searchQuery,
     selectedCategory,
@@ -88,9 +49,15 @@ export default function SearchPage() {
     hasSearched,
     setSearchQuery,
     performSearch,
+    performSearchWithValues,
     handleFilterChange,
     clearSearch
   } = useSearch(mockData);
+
+  // Clear all search and filters
+  const clearAll = () => {
+    clearSearch(); // This already clears search query and all filters
+  };
 
   // Generate suggestions from work titles and authors
   const suggestions = [
@@ -106,20 +73,28 @@ export default function SearchPage() {
     <div className="grainy-bg min-h-screen overflow-x-hidden relative">
       {/* Custom Cursor & Effects */}
       <div 
-        className={`custom-cursor ${isHovering ? 'hover' : ''} ${isOverFooter ? 'footer' : ''}`}
+        ref={cursorRef}
+        className="custom-cursor"
         style={{
-          left: mousePosition.x,
-          top: mousePosition.y,
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          pointerEvents: 'none',
+          zIndex: 9999,
         }}
       />
       
       <div 
+        ref={blurRef}
         className="mouse-blur"
         style={{
-          left: mousePosition.x - 100,
-          top: mousePosition.y - 100,
-          width: '200px',
-          height: '200px',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '120px',
+          height: '120px',
+          pointerEvents: 'none',
+          zIndex: 60,
         }}
       />
 
@@ -157,6 +132,7 @@ export default function SearchPage() {
             onSearch={performSearch}
             isLoading={isLoading}
             suggestions={suggestions}
+            onClearAll={clearAll}
           />
             
           <SearchFilters 
@@ -204,6 +180,12 @@ export default function SearchPage() {
           hasSearched={hasSearched}
           searchQuery={searchQuery}
           onClearSearch={clearSearch}
+          setSearchQuery={setSearchQuery}
+          performSearch={performSearch}
+          performSearchWithValues={performSearchWithValues}
+          selectedCategory={selectedCategory}
+          selectedCountry={selectedCountry}
+          selectedStatus={selectedStatus}
         />
       </div>
 

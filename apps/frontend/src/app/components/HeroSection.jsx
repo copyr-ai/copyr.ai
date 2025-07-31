@@ -130,11 +130,11 @@ export default function HeroSection({ children }) {
             {/* CTA Button */}
             <Button
               onClick={() => window.location.href = '/search'}
-              className="px-6 py-3 bg-gradient-to-r from-brand-pink to-brand-purple hover:from-brand-pink/90 hover:to-brand-purple/90 text-white font-semibold text-sm tracking-wide rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 h-auto group"
+              className="px-8 py-3 bg-gradient-to-r from-brand-pink to-brand-purple hover:from-brand-pink/90 hover:to-brand-purple/90 text-white font-semibold text-sm tracking-wide rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 h-auto group"
             >
               <span>Try It Now</span>
               <svg 
-                className="w-4 h-4 ml-2 animate-arrow transition-transform duration-300" 
+                className="h-4 animate-arrow transition-transform duration-300" 
                 fill="none" 
                 stroke="currentColor" 
                 viewBox="0 0 24 24"

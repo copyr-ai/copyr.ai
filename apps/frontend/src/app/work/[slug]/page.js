@@ -133,10 +133,10 @@ export default function WorkDetailPage() {
         <div 
           className="mouse-blur"
           style={{
-            left: mousePosition.x - 100,
-            top: mousePosition.y - 100,
-            width: '200px',
-            height: '200px',
+            left: mousePosition.x - 60,
+            top: mousePosition.y - 60,
+            width: '120px',
+            height: '120px',
           }}
         />
 
@@ -164,10 +164,10 @@ export default function WorkDetailPage() {
         <div 
           className="mouse-blur"
           style={{
-            left: mousePosition.x - 100,
-            top: mousePosition.y - 100,
-            width: '200px',
-            height: '200px',
+            left: mousePosition.x - 60,
+            top: mousePosition.y - 60,
+            width: '120px',
+            height: '120px',
           }}
         />
 
@@ -201,10 +201,10 @@ export default function WorkDetailPage() {
       <div 
         className="mouse-blur"
         style={{
-          left: mousePosition.x - 100,
-          top: mousePosition.y - 100,
-          width: '200px',
-          height: '200px',
+          left: mousePosition.x - 60,
+          top: mousePosition.y - 60,
+          width: '120px',
+          height: '120px',
         }}
       />
 
@@ -228,26 +228,30 @@ export default function WorkDetailPage() {
           transition={{ duration: 0.6 }}
         >
           {/* Header */}
-          <div className="flex items-start justify-between mb-8">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between mb-8 gap-4">
             <div className="flex-1">
-              <h1 className="text-4xl font-bold text-brand-dark mb-4">{work.title}</h1>
-              <div className="flex items-center gap-4 text-lg text-gray-600 mb-4">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-brand-dark mb-4">{work.title}</h1>
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm sm:text-base lg:text-lg text-gray-600 mb-4">
                 <div className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  {work.author_name}
+                  <User className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <span className="break-words">{work.author_name}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
+                  <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
                   {work.publication_year}
                 </div>
                 <div className="flex items-center gap-2">
-                  <Globe className="h-5 w-5" />
+                  <Globe className="h-4 w-4 sm:h-5 sm:w-5" />
                   {work.country}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center text-brand-purple font-bold">•</span>
+                  <span className="capitalize">{work.work_type}</span>
                 </div>
               </div>
               <div className="flex items-center gap-3">
                 {getStatusIcon(work.status)}
-                <span className={`px-4 py-2 rounded-full text-lg font-medium ${
+                <span className={`px-3 sm:px-4 py-2 rounded-full text-sm sm:text-base lg:text-lg font-medium ${
                   work.status === 'Public Domain' 
                     ? 'bg-green-100 text-green-700'
                     : work.status === 'Under Copyright'
@@ -260,8 +264,12 @@ export default function WorkDetailPage() {
             </div>
 
             {/* Share Buttons */}
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={copyToClipboard}>
+            <div className="flex gap-2 lg:mt-0">
+              <Button 
+                size="sm" 
+                onClick={copyToClipboard}
+                className="bg-gradient-to-r from-brand-pink to-brand-purple hover:from-brand-pink/90 hover:to-brand-purple/90 text-white border-0 w-full sm:w-auto"
+              >
                 <Copy className="h-4 w-4 mr-2" />
                 {copySuccess ? 'Copied!' : 'Copy Link'}
               </Button>
@@ -269,12 +277,12 @@ export default function WorkDetailPage() {
           </div>
 
           {/* Copyright Analysis */}
-          <Card className="mb-8">
+          <Card className="mb-6 sm:mb-8">
             <CardHeader>
-              <CardTitle className="text-xl text-brand-dark">Copyright Analysis</CardTitle>
+              <CardTitle className="text-lg sm:text-xl text-brand-dark">Copyright Analysis</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-gray-700 leading-relaxed">{work.notes}</p>
+              <p className="text-sm sm:text-base text-gray-700 leading-relaxed">{work.notes}</p>
               
               {work.enters_public_domain && (
                 <div className="flex items-center gap-2 text-gray-600">
@@ -288,7 +296,7 @@ export default function WorkDetailPage() {
                 </div>
               )}
 
-              <div className="flex items-center gap-2 text-gray-600">
+              <div className="flex items-center gap-2 text-sm sm:text-base text-gray-600">
                 <span>Confidence Score: {(work.confidence_score * 100).toFixed(0)}%</span>
               </div>
             </CardContent>
@@ -296,9 +304,9 @@ export default function WorkDetailPage() {
 
           {/* Source Links */}
           {work.source_links && Object.keys(work.source_links).length > 0 && (
-            <Card className="mb-8">
+            <Card className="mb-6 sm:mb-8">
               <CardHeader>
-                <CardTitle className="text-xl text-brand-dark">Sources & References</CardTitle>
+                <CardTitle className="text-lg sm:text-xl text-brand-dark">Sources & References</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-3">
@@ -306,13 +314,13 @@ export default function WorkDetailPage() {
                     <Button
                       key={source}
                       variant="outline"
-                      className="justify-start h-auto p-4"
+                      className="justify-start h-auto p-3 sm:p-4 text-left"
                       onClick={() => window.open(url, '_blank')}
                     >
-                      <ExternalLink className="h-4 w-4 mr-3" />
-                      <div className="text-left">
-                        <div className="font-medium">{source.toUpperCase()}</div>
-                        <div className="text-sm text-gray-600 truncate">{url}</div>
+                      <ExternalLink className="h-4 w-4 mr-3 flex-shrink-0" />
+                      <div className="text-left min-w-0 flex-1">
+                        <div className="font-medium text-sm sm:text-base">{source.toUpperCase()}</div>
+                        <div className="text-xs sm:text-sm text-gray-600 truncate">{url}</div>
                       </div>
                     </Button>
                   ))}
@@ -324,25 +332,25 @@ export default function WorkDetailPage() {
           {/* Analysis Metadata */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-xl text-brand-dark">Analysis Details</CardTitle>
+              <CardTitle className="text-lg sm:text-xl text-brand-dark">Analysis Details</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="grid md:grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="font-medium text-gray-700">Work Type:</span>
-                  <span className="ml-2 capitalize">{work.work_type}</span>
+              <div className="grid sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center">
+                  <span className="font-medium text-gray-700 mb-1 sm:mb-0">Work Type:</span>
+                  <span className="sm:ml-2 capitalize">{work.work_type}</span>
                 </div>
-                <div>
-                  <span className="font-medium text-gray-700">Category:</span>
-                  <span className="ml-2">{work.category}</span>
+                <div className="flex flex-col sm:flex-row sm:items-center">
+                  <span className="font-medium text-gray-700 mb-1 sm:mb-0">Category:</span>
+                  <span className="sm:ml-2">{work.category}</span>
                 </div>
-                <div>
-                  <span className="font-medium text-gray-700">Published:</span>
-                  <span className="ml-2">{work.published ? 'Yes' : 'No'}</span>
+                <div className="flex flex-col sm:flex-row sm:items-center">
+                  <span className="font-medium text-gray-700 mb-1 sm:mb-0">Published:</span>
+                  <span className="sm:ml-2">{work.published ? 'Yes' : 'No'}</span>
                 </div>
-                <div>
-                  <span className="font-medium text-gray-700">Last Analyzed:</span>
-                  <span className="ml-2">{new Date(work.queried_at).toLocaleDateString()}</span>
+                <div className="flex flex-col sm:flex-row sm:items-center">
+                  <span className="font-medium text-gray-700 mb-1 sm:mb-0">Last Analyzed:</span>
+                  <span className="sm:ml-2">{new Date(work.queried_at).toLocaleDateString()}</span>
                 </div>
               </div>
             </CardContent>

@@ -2,16 +2,17 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Search } from 'lucide-react';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
+import { Search, X } from 'lucide-react';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
 
 export default function SearchBar({ 
   searchQuery, 
   setSearchQuery, 
   onSearch, 
   isLoading,
-  suggestions = []
+  suggestions = [],
+  onClearAll
 }) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -129,9 +130,20 @@ export default function SearchBar({
             onKeyDown={handleKeyDown}
             onFocus={handleFocus}
             onBlur={handleBlur}
-            className="pl-16 pr-32 h-full w-full text-lg border-0 bg-transparent text-brand-dark placeholder:text-gray-500 focus:ring-0 focus:outline-none rounded-xl"
+            className="pl-16 pr-40 h-full w-full text-lg border-0 bg-transparent text-brand-dark placeholder:text-gray-500 focus:ring-0 focus:outline-none rounded-xl"
             autoComplete="off"
           />
+          
+          {/* Clear All Button */}
+          {searchQuery && (
+            <button
+              onClick={onClearAll}
+              className="absolute right-[120px] top-1/2 transform -translate-y-1/2 p-2 text-gray-400 hover:text-red-500 transition-colors duration-200 rounded-full hover:bg-red-50"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+          
           <Button 
             onClick={() => onSearch()}
             disabled={isLoading}

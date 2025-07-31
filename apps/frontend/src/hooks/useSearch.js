@@ -87,9 +87,10 @@ export default function useSearch(data) {
     router.push(newURL, { scroll: false });
   };
 
-  // Main search function
-  const performSearch = (scrollToResults = true) => {
-    if (!searchQuery.trim() && selectedCategory === 'All' && selectedCountry === 'All' && selectedStatus === 'All') {
+  // Search function with explicit values (to avoid stale closure issues)
+  const performSearchWithValues = (query, category, country, status, scrollToResults = true) => {
+    // Only return early if there's truly nothing to search for
+    if (!query.trim() && category === 'All' && country === 'All' && status === 'All') {
       if (hasSearched) {
         clearSearch();
       }
@@ -100,54 +101,47 @@ export default function useSearch(data) {
     setHasSearched(true);
     
     // Update URL with search parameters
-    updateURL(searchQuery, selectedCategory, selectedCountry, selectedStatus);
+    updateURL(query, category, country, status);
     
     // Fast search with Lunr.js
     setTimeout(() => {
       let results = [];
       
-      console.log('Performing search with query:', searchQuery.trim()); // Debug log
-      console.log('Search index available:', !!searchIndex); // Debug log
       
-      if (searchQuery.trim() && searchIndex) {
+      if (query.trim() && searchIndex) {
         // Use Lunr.js for text search
         try {
-          const searchResults = searchIndex.search(searchQuery);
-          console.log('Lunr search results:', searchResults); // Debug log
+          const searchResults = searchIndex.search(query);
           const searchIds = searchResults.map(result => parseInt(result.ref));
           results = data.works.filter(work => searchIds.includes(work.id));
-          console.log('Filtered results from Lunr:', results.length); // Debug log
           
           // If no results from Lunr, try a fallback search
           if (results.length === 0) {
-            console.log('Lunr returned no results, trying fallback search'); // Debug log
             results = data.works.filter(work => 
-              work.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              work.author_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              work.category.toLowerCase().includes(searchQuery.toLowerCase())
+              work.title.toLowerCase().includes(query.toLowerCase()) ||
+              work.author_name.toLowerCase().includes(query.toLowerCase()) ||
+              work.category.toLowerCase().includes(query.toLowerCase())
             );
-            console.log('Fallback search results:', results.length); // Debug log
           }
         } catch (error) {
           console.warn('Lunr search failed, using fallback:', error);
           // Fallback to simple text search
           results = data.works.filter(work => 
-            work.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            work.author_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            work.category.toLowerCase().includes(searchQuery.toLowerCase())
+            work.title.toLowerCase().includes(query.toLowerCase()) ||
+            work.author_name.toLowerCase().includes(query.toLowerCase()) ||
+            work.category.toLowerCase().includes(query.toLowerCase())
           );
         }
-      } else if (!searchQuery.trim()) {
-        console.log('No search query, showing all results'); // Debug log
+      } else if (!query.trim()) {
         // No text query, use all results
         results = [...data.works];
       }
       
       // Apply additional filters
       const filteredResults = results.filter(work => {
-        const matchesCategory = selectedCategory === 'All' || work.category === selectedCategory;
-        const matchesCountry = selectedCountry === 'All' || work.country === selectedCountry;
-        const matchesStatus = selectedStatus === 'All' || work.status === selectedStatus;
+        const matchesCategory = category === 'All' || work.category === category;
+        const matchesCountry = country === 'All' || work.country === country;
+        const matchesStatus = status === 'All' || work.status === status;
         
         return matchesCategory && matchesCountry && matchesStatus;
       });
@@ -171,22 +165,34 @@ export default function useSearch(data) {
     }, 300);
   };
 
+  // Main search function (uses current state values)
+  const performSearch = (scrollToResults = true) => {
+    performSearchWithValues(searchQuery, selectedCategory, selectedCountry, selectedStatus, scrollToResults);
+  };
+
   // Handle filter changes
   const handleFilterChange = (filterType, value) => {
+    let newCategory = selectedCategory;
+    let newCountry = selectedCountry;
+    let newStatus = selectedStatus;
+    
     switch (filterType) {
       case 'category':
         setSelectedCategory(value);
+        newCategory = value;
         break;
       case 'country':
         setSelectedCountry(value);
+        newCountry = value;
         break;
       case 'status':
         setSelectedStatus(value);
+        newStatus = value;
         break;
     }
     
-    // Trigger search immediately when filter changes
-    setTimeout(() => performSearch(false), 100);
+    // Trigger search immediately with the new values
+    setTimeout(() => performSearchWithValues(searchQuery, newCategory, newCountry, newStatus, false), 100);
   };
 
   // Clear all search and filters
@@ -213,6 +219,7 @@ export default function useSearch(data) {
     // Actions
     setSearchQuery,
     performSearch,
+    performSearchWithValues,
     handleFilterChange,
     clearSearch
   };
