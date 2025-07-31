@@ -13,6 +13,7 @@ export default function SearchResults({
   setSearchQuery,
   performSearch,
   performSearchWithValues,
+  searchWithClearedFilters,
   selectedCategory,
   selectedCountry,
   selectedStatus
@@ -75,8 +76,13 @@ export default function SearchResults({
             </Button>
             <Button 
               onClick={() => {
-                setSearchQuery('gatsby');
-                performSearchWithValues('gatsby', selectedCategory, selectedCountry, selectedStatus, true);
+                if (searchWithClearedFilters) {
+                  searchWithClearedFilters('gatsby');
+                } else {
+                  // Fallback
+                  setSearchQuery('gatsby');
+                  performSearchWithValues('gatsby', 'All', 'All', 'All', true);
+                }
               }}
               className="bg-gradient-to-r from-brand-pink to-brand-purple hover:from-brand-pink/90 hover:to-brand-purple/90 text-white"
             >

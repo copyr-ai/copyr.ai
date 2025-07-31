@@ -51,6 +51,8 @@ export default function SearchPage() {
     performSearch,
     performSearchWithValues,
     handleFilterChange,
+    clearFilters,
+    searchWithClearedFilters,
     clearSearch
   } = useSearch(mockData);
 
@@ -143,6 +145,7 @@ export default function SearchPage() {
             selectedCountry={selectedCountry}
             selectedStatus={selectedStatus}
             onFilterChange={handleFilterChange}
+            onClearFilters={clearFilters}
           />
         </div>
       </motion.div>
@@ -183,6 +186,7 @@ export default function SearchPage() {
           setSearchQuery={setSearchQuery}
           performSearch={performSearch}
           performSearchWithValues={performSearchWithValues}
+          searchWithClearedFilters={searchWithClearedFilters}
           selectedCategory={selectedCategory}
           selectedCountry={selectedCountry}
           selectedStatus={selectedStatus}

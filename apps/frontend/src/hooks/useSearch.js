@@ -191,8 +191,50 @@ export default function useSearch(data) {
         break;
     }
     
-    // Trigger search immediately with the new values
-    setTimeout(() => performSearchWithValues(searchQuery, newCategory, newCountry, newStatus, false), 100);
+    // Check if all filters are cleared and search query is empty
+    const allFiltersCleared = newCategory === 'All' && newCountry === 'All' && newStatus === 'All';
+    const isSearchEmpty = !searchQuery.trim();
+    
+    if (allFiltersCleared && isSearchEmpty) {
+      // Clear everything including search state
+      clearSearch();
+    } else {
+      // Trigger search immediately with the new values
+      setTimeout(() => performSearchWithValues(searchQuery, newCategory, newCountry, newStatus, false), 100);
+    }
+  };
+
+  // Clear all filters (used by clear filters button)
+  const clearFilters = () => {
+    const newCategory = 'All';
+    const newCountry = 'All';
+    const newStatus = 'All';
+    
+    setSelectedCategory(newCategory);
+    setSelectedCountry(newCountry);
+    setSelectedStatus(newStatus);
+    
+    // Check if search query is empty too
+    const isSearchEmpty = !searchQuery.trim();
+    
+    if (isSearchEmpty) {
+      // Clear everything including search state
+      clearSearch();
+    } else {
+      // Keep search query but clear filters
+      setTimeout(() => performSearchWithValues(searchQuery, newCategory, newCountry, newStatus, false), 100);
+    }
+  };
+
+  // Search with query and clear all filters
+  const searchWithClearedFilters = (query) => {
+    setSearchQuery(query);
+    setSelectedCategory('All');
+    setSelectedCountry('All');
+    setSelectedStatus('All');
+    
+    // Perform search with cleared filters
+    setTimeout(() => performSearchWithValues(query, 'All', 'All', 'All', true), 100);
   };
 
   // Clear all search and filters
@@ -221,6 +263,8 @@ export default function useSearch(data) {
     performSearch,
     performSearchWithValues,
     handleFilterChange,
+    clearFilters,
+    searchWithClearedFilters,
     clearSearch
   };
 }
