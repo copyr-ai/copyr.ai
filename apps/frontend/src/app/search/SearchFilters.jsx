@@ -63,7 +63,8 @@ export default function SearchFilters({
   selectedCategory, 
   selectedCountry, 
   selectedStatus, 
-  onFilterChange 
+  onFilterChange,
+  onClearFilters
 }) {
   return (
     <motion.div 
@@ -192,9 +193,14 @@ export default function SearchFilters({
         >
           <button
             onClick={() => {
-              onFilterChange('category', 'All');
-              onFilterChange('country', 'All');
-              onFilterChange('status', 'All');
+              if (onClearFilters) {
+                onClearFilters();
+              } else {
+                // Fallback to individual filter changes
+                onFilterChange('category', 'All');
+                onFilterChange('country', 'All');
+                onFilterChange('status', 'All');
+              }
             }}
             className="h-9 px-4 bg-red-50 hover:bg-red-100 border-2 border-red-300 hover:border-red-400 focus:border-red-500 focus:ring-0 focus:outline-none rounded-lg shadow-sm hover:shadow-md transition-all duration-300 text-sm text-red-700 hover:text-red-800 font-semibold"
           >
