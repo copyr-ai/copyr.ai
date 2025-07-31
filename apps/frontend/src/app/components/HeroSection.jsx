@@ -51,7 +51,7 @@ export default function HeroSection({ children }) {
   }, [])
   
   return (
-    <div className="grainy-bg min-h-screen overflow-x-hidden relative">
+    <div className="grainy-bg overflow-x-hidden relative">
       {/* Custom Cursor */}
       <div 
         className={`custom-cursor ${isHovering ? 'hover' : ''} ${isOverFooter ? 'footer' : ''}`}
@@ -126,6 +126,22 @@ export default function HeroSection({ children }) {
                 ✨ Copyright has never been so easy
               </span>
             </div>
+
+            {/* CTA Button */}
+            <Button
+              onClick={() => window.location.href = '/search'}
+              className="px-8 py-3 bg-gradient-to-r from-brand-pink to-brand-purple hover:from-brand-pink/90 hover:to-brand-purple/90 text-white font-semibold text-sm tracking-wide rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 h-auto group"
+            >
+              <span>Try It Now</span>
+              <svg 
+                className="h-4 animate-arrow transition-transform duration-300" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            </Button>
 
           </motion.div>
         </div>

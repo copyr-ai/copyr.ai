@@ -10,23 +10,62 @@ export default function Navbar() {
   
   useEffect(() => {
     const handleScroll = () => {
-      const macbookContainer = document.getElementById('survey-container')
-      if (macbookContainer) {
-        const rect = macbookContainer.getBoundingClientRect()
-        const viewportHeight = window.innerHeight
-        const scrollY = window.scrollY
-        
-        // Only hide navbar when:
-        // 1. We're not at the very top (scrollY > 100)
-        // 2. AND the macbook is prominently in view (center 50% of viewport)
-        const atTop = scrollY < 100
-        const macbookInCenter = rect.top < viewportHeight * 0.6 && rect.bottom > viewportHeight * 0.4
-        
-        setIsHidden(!atTop && macbookInCenter)
+      const scrollY = window.scrollY
+      const viewportHeight = window.innerHeight
+      
+      // Check if we're on any search page (including with query parameters)
+      const isSearchPage = window.location.pathname.startsWith('/search')
+      
+      if (isSearchPage) {
+        // On search page, hide navbar much earlier - before searchbar area
+        // Search bar area starts around 32 (pt-32) which is ~128px from top
+        // Hide navbar when we scroll past 80px on search page
+        setIsHidden(scrollY > 80)
+        return
       }
+      
+      // For other pages, use the original logic
+      // Check if any main content is overlapping with navbar area (top 100px)
+      const contentElements = document.querySelectorAll('main, [data-main-content], .search-content, .work-content')
+      let hasOverlap = false
+      
+      contentElements.forEach(element => {
+        if (element) {
+          const rect = element.getBoundingClientRect()
+          // Check if content is in the navbar area (top 100px of viewport)
+          if (rect.top < 100 && rect.bottom > 0) {
+            hasOverlap = true
+          }
+        }
+      })
+      
+      // Also check for specific containers that might indicate main content
+      const searchContainer = document.querySelector('[data-search-results]')
+      const workContainer = document.querySelector('.work-detail-content')
+      
+      if (searchContainer) {
+        const rect = searchContainer.getBoundingClientRect()
+        if (rect.top < 100 && rect.bottom > 0) {
+          hasOverlap = true
+        }
+      }
+      
+      if (workContainer) {
+        const rect = workContainer.getBoundingClientRect()
+        if (rect.top < 100 && rect.bottom > 0) {
+          hasOverlap = true
+        }
+      }
+      
+      // Only hide navbar when:
+      // 1. We've scrolled past initial section (scrollY > 150)
+      // 2. AND content is overlapping with navbar area
+      const pastInitialSection = scrollY > 150
+      
+      setIsHidden(pastInitialSection && hasOverlap)
     }
 
-    window.addEventListener('scroll', handleScroll)
+    window.addEventListener('scroll', handleScroll, { passive: true })
     // Run once on mount to set initial state
     handleScroll()
     return () => window.removeEventListener('scroll', handleScroll)
@@ -37,6 +76,14 @@ export default function Navbar() {
       top: 0, 
       behavior: 'smooth' 
     })
+  }
+
+  const goToHomepage = () => {
+    window.location.href = '/'
+  }
+
+  const goToSearch = () => {
+    window.location.href = '/search'
   }
 
   return (
@@ -51,7 +98,7 @@ export default function Navbar() {
     >
       <div className="flex items-center justify-between px-8 py-4">
         {/* Logo */}
-        <div className="flex items-center cursor-pointer hover:opacity-80 transition-opacity" onClick={scrollToTop}>
+        <div className="flex items-center cursor-pointer hover:opacity-80 transition-opacity" onClick={goToHomepage}>
           <Image
             src="/brand-copyr.ai-light.svg"
             alt="copyr.ai"
@@ -74,6 +121,20 @@ export default function Navbar() {
           >
             Connect
           </a>
+          <Button
+            onClick={goToSearch}
+            className="px-4 py-2 bg-gradient-to-r from-brand-pink to-brand-purple hover:from-brand-pink/90 hover:to-brand-purple/90 text-white font-semibold text-xs tracking-wide rounded-full shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 h-auto group"
+          >
+            <span>Try It Now</span>
+            <svg 
+              className="w-3 h-3 ml-1.5 animate-arrow transition-transform duration-300" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+            </svg>
+          </Button>
         </div>
 
       </div>
