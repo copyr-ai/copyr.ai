@@ -19,17 +19,70 @@ export default function SearchBar({
   const inputRef = useRef(null);
   const suggestionsRef = useRef(null);
 
-  // Filter suggestions based on current query
-  const filteredSuggestions = suggestions
-    .filter(suggestion => 
-      suggestion.toLowerCase().includes(searchQuery.toLowerCase()) && 
-      suggestion.toLowerCase() !== searchQuery.toLowerCase()
-    )
-    .slice(0, 5);
+  // Filter suggestions based on current query and organize by sections
+  const getFilteredSuggestions = () => {
+    if (!searchQuery.trim()) return { sections: [], totalCount: 0 };
+
+    const queryLower = searchQuery.toLowerCase();
+    const filteredSections = [];
+    let totalCount = 0;
+
+    // If suggestions has sections (new format)
+    if (suggestions?.sections) {
+      suggestions.sections.forEach(section => {
+        const matchingItems = section.items
+          .filter(item => 
+            item.toLowerCase().includes(queryLower) && 
+            item.toLowerCase() !== queryLower
+          )
+          .slice(0, 4); // Limit items per section
+
+        if (matchingItems.length > 0) {
+          filteredSections.push({
+            ...section,
+            items: matchingItems
+          });
+          totalCount += matchingItems.length;
+        }
+      });
+    } else {
+      // Fallback for legacy flat array format
+      const flatSuggestions = (suggestions || [])
+        .filter(suggestion => 
+          suggestion.toLowerCase().includes(queryLower) && 
+          suggestion.toLowerCase() !== queryLower
+        )
+        .slice(0, 5);
+      
+      if (flatSuggestions.length > 0) {
+        filteredSections.push({
+          title: "Suggestions",
+          icon: "🔍",
+          items: flatSuggestions
+        });
+        totalCount = flatSuggestions.length;
+      }
+    }
+
+    return { sections: filteredSections, totalCount };
+  };
+
+  const filteredSuggestions = getFilteredSuggestions();
+
+  // Flatten suggestions for keyboard navigation
+  const getFlatSuggestions = () => {
+    const flat = [];
+    filteredSuggestions.sections?.forEach(section => {
+      section.items?.forEach(item => flat.push(item));
+    });
+    return flat;
+  };
+
+  const flatSuggestions = getFlatSuggestions();
 
   // Handle keyboard navigation
   const handleKeyDown = (e) => {
-    if (!showSuggestions || filteredSuggestions.length === 0) {
+    if (!showSuggestions || filteredSuggestions.totalCount === 0) {
       if (e.key === 'Enter') {
         onSearch();
       }
@@ -40,19 +93,19 @@ export default function SearchBar({
       case 'ArrowDown':
         e.preventDefault();
         setSelectedIndex(prev => 
-          prev < filteredSuggestions.length - 1 ? prev + 1 : 0
+          prev < flatSuggestions.length - 1 ? prev + 1 : 0
         );
         break;
       case 'ArrowUp':
         e.preventDefault();
         setSelectedIndex(prev => 
-          prev > 0 ? prev - 1 : filteredSuggestions.length - 1
+          prev > 0 ? prev - 1 : flatSuggestions.length - 1
         );
         break;
       case 'Enter':
         e.preventDefault();
-        if (selectedIndex >= 0) {
-          setSearchQuery(filteredSuggestions[selectedIndex]);
+        if (selectedIndex >= 0 && flatSuggestions[selectedIndex]) {
+          setSearchQuery(flatSuggestions[selectedIndex]);
           setShowSuggestions(false);
           setSelectedIndex(-1);
         } else {
@@ -164,26 +217,52 @@ export default function SearchBar({
         </div>
 
         {/* Autocomplete Suggestions */}
-        {showSuggestions && filteredSuggestions.length > 0 && (
+        {showSuggestions && filteredSuggestions.totalCount > 0 && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
-            className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden"
+            className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden max-h-96 overflow-y-auto"
           >
-            {filteredSuggestions.map((suggestion, index) => (
-              <div
-                key={suggestion}
-                onClick={() => handleSuggestionClick(suggestion)}
-                className={`px-6 py-3 cursor-pointer transition-colors duration-150 flex items-center ${
-                  index === selectedIndex 
-                    ? 'bg-brand-pink/10 text-brand-pink' 
-                    : 'hover:bg-gray-50 text-gray-700'
-                }`}
-              >
-                <Search className="h-4 w-4 mr-3 text-gray-400" />
-                <span className="text-sm">{suggestion}</span>
+            {filteredSuggestions.sections?.map((section, sectionIndex) => (
+              <div key={section.title}>
+                {/* Section Header */}
+                <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 sticky top-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">{section.icon}</span>
+                    <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+                      {section.title}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      ({section.items.length})
+                    </span>
+                  </div>
+                </div>
+                
+                {/* Section Items */}
+                {section.items.map((item, itemIndex) => {
+                  const globalIndex = flatSuggestions.indexOf(item);
+                  return (
+                    <div
+                      key={`${section.title}-${item}`}
+                      onClick={() => handleSuggestionClick(item)}
+                      className={`px-6 py-3 cursor-pointer transition-colors duration-150 flex items-center ${
+                        globalIndex === selectedIndex 
+                          ? 'bg-brand-pink/10 text-brand-pink' 
+                          : 'hover:bg-gray-50 text-gray-700'
+                      }`}
+                    >
+                      <Search className="h-4 w-4 mr-3 text-gray-400" />
+                      <span className="text-sm">{item}</span>
+                    </div>
+                  );
+                })}
+                
+                {/* Divider between sections (except last) */}
+                {sectionIndex < filteredSuggestions.sections.length - 1 && (
+                  <div className="border-b border-gray-100"></div>
+                )}
               </div>
             ))}
           </motion.div>

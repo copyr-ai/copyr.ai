@@ -61,15 +61,26 @@ export default function SearchPage() {
     clearSearch(); // This already clears search query and all filters
   };
 
-  // Generate suggestions from work titles and authors
-  const suggestions = [
-    ...mockData.works.map(work => work.title),
-    ...mockData.works.map(work => work.author_name),
-    ...Array.from(new Set(mockData.works.map(work => work.category))),
-    // Add some common search terms
-    'American Gothic', 'Shakespeare', 'Mozart', 'Van Gogh', 'Beethoven',
-    'Pride and Prejudice', 'The Starry Night', 'Swan Lake', 'The Godfather'
-  ].filter((item, index, arr) => arr.indexOf(item) === index); // Remove duplicates
+  // Generate organized suggestions with sections
+  const suggestions = {
+    sections: [
+      {
+        title: "Work Titles",
+        icon: "📖",
+        items: [...new Set(mockData.works.map(work => work.title))].slice(0, 6)
+      },
+      {
+        title: "Authors",
+        icon: "👤", 
+        items: [...new Set(mockData.works.map(work => work.author_name))].slice(0, 8)
+      },
+      {
+        title: "Categories",
+        icon: "🏷️",
+        items: [...new Set(mockData.works.map(work => work.category))]
+      }
+    ]
+  };
 
   return (
     <div className="grainy-bg min-h-screen overflow-x-hidden relative">

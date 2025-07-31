@@ -210,17 +210,7 @@ export default function WorkDetailPage() {
 
       <Navbar />
       
-      <div className="pt-32 pb-20 px-4 max-w-4xl mx-auto work-detail-content">
-        {/* Back Button */}
-        <Button 
-          variant="ghost" 
-          onClick={() => router.back()}
-          className="mb-6 hover:bg-brand-pink/10"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Search
-        </Button>
-
+      <div className="pt-40 pb-20 px-4 max-w-4xl mx-auto work-detail-content">
         {/* Main Content */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -263,8 +253,17 @@ export default function WorkDetailPage() {
               </div>
             </div>
 
-            {/* Share Buttons */}
-            <div className="flex gap-2 lg:mt-0">
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-2 lg:mt-0">
+              <div className="gradient-border-simple w-full sm:w-auto">
+                <button
+                  onClick={() => router.back()}
+                  className="gradient-border-simple-content text-brand-dark hover:text-brand-pink transition-colors duration-300 font-medium text-sm w-full"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Search
+                </button>
+              </div>
               <Button 
                 size="sm" 
                 onClick={copyToClipboard}
