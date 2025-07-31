@@ -243,48 +243,65 @@ html::-webkit-scrollbar {
   
 
   /* Custom Modern Cursor - Clean Implementation */
-  * {
-    cursor: none !important;
+  /* Only show custom cursor on devices with accurate pointing (laptops/desktops) */
+  @media (hover: hover) and (pointer: fine) {
+    * {
+      cursor: none !important;
+    }
+    
+    .custom-cursor {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 16px;
+      height: 16px;
+      pointer-events: none;
+      z-index: 9999;
+      transition: none;
+      background-image: url('https://img.icons8.com/?size=100&id=11202&format=png&color=000000');
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      will-change: transform;
+      transform: translateZ(0);
+      display: block;
+    }
+    
+    /* White cursor for footer/dark backgrounds */
+    .custom-cursor.footer {
+      background-image: url('https://img.icons8.com/?size=100&id=11202&format=png&color=ffffff');
+    }
+    
+    .custom-cursor.hover {
+      transform: scale(1.1) translateZ(0);
+    }
+    
+    .mouse-blur {
+      position: fixed;
+      pointer-events: none;
+      z-index: 60;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--brand-pink) 0%, var(--brand-purple) 15%, transparent 25%);
+      filter: blur(6px);
+      opacity: 0.08;
+      transition: none;
+      mix-blend-mode: multiply;
+      will-change: transform;
+      transform: translateZ(0);
+      display: block;
+    }
   }
   
-  .custom-cursor {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 16px;
-    height: 16px;
-    pointer-events: none;
-    z-index: 9999;
-    transition: none;
-    background-image: url('https://img.icons8.com/?size=100&id=11202&format=png&color=000000');
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-    will-change: transform;
-    transform: translateZ(0);
-  }
-  
-  /* White cursor for footer/dark backgrounds */
-  .custom-cursor.footer {
-    background-image: url('https://img.icons8.com/?size=100&id=11202&format=png&color=ffffff');
-  }
-  
-  .custom-cursor.hover {
-    transform: scale(1.1) translateZ(0);
-  }
-  
-  .mouse-blur {
-    position: fixed;
-    pointer-events: none;
-    z-index: 60;
-    border-radius: 50%;
-    background: radial-gradient(circle, var(--brand-pink) 0%, var(--brand-purple) 25%, transparent 40%);
-    filter: blur(8px);
-    opacity: 0.12;
-    transition: none;
-    mix-blend-mode: multiply;
-    will-change: transform;
-    transform: translateZ(0);
+  /* Hide custom cursor on touch devices and devices without accurate pointing */
+  @media (hover: none) or (pointer: coarse) {
+    * {
+      cursor: auto !important;
+    }
+    
+    .custom-cursor,
+    .mouse-blur {
+      display: none !important;
+    }
   }
 
   /* Animated Arrow */

@@ -5,7 +5,7 @@ import {
   Book, Music, Video, Image, Globe, 
   CheckCircle, XCircle, AlertCircle 
 } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 
 const FilterIcon = ({ category, type }) => {
   if (type === 'category') {
@@ -37,6 +37,22 @@ const FilterIcon = ({ category, type }) => {
     }
   }
   
+  if (type === 'country') {
+    switch (category) {
+      case 'US':
+        return <span className="text-base">🇺🇸</span>;
+      case 'UK':
+        return <span className="text-base">🇬🇧</span>;
+      case 'CA':
+        return <span className="text-base">🇨🇦</span>;
+      case 'DE':
+        return <span className="text-base">🇩🇪</span>;
+      case 'All':
+      default:
+        return <Globe className="h-4 w-4 text-brand-purple" />;
+    }
+  }
+  
   return <Globe className="h-4 w-4 text-brand-purple" />;
 };
 
@@ -59,6 +75,7 @@ export default function SearchFilters({
       {/* Category Filter */}
       <div className="relative">
         <Select 
+          key="category-select"
           value={selectedCategory} 
           onValueChange={(value) => onFilterChange('category', value)}
         >
@@ -71,9 +88,9 @@ export default function SearchFilters({
             </div>
           </SelectTrigger>
           <SelectContent className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg shadow-xl">
-            {categories.map(category => (
+            {categories.map((category, index) => (
               <SelectItem 
-                key={category} 
+                key={`category-${index}-${category}`} 
                 value={category} 
                 className="hover:bg-brand-pink/10 focus:bg-brand-pink/10"
               >
@@ -109,7 +126,7 @@ export default function SearchFilters({
                 className="hover:bg-brand-purple/10 focus:bg-brand-purple/10"
               >
                 <div className="flex items-center gap-2">
-                  <Globe className="h-4 w-4 text-brand-purple" />
+                  <FilterIcon category={country} type="country" />
                   {country}
                 </div>
               </SelectItem>
@@ -124,9 +141,17 @@ export default function SearchFilters({
           value={selectedStatus} 
           onValueChange={(value) => onFilterChange('status', value)}
         >
-          <SelectTrigger className="w-[170px] h-12 bg-white/90 backdrop-blur-sm border-2 border-green-400/20 hover:border-green-400/40 focus:border-green-400/60 focus:ring-0 focus:outline-none rounded-lg shadow-sm hover:shadow-md transition-all duration-300">
+          <SelectTrigger className={`w-[170px] h-12 bg-white/90 backdrop-blur-sm border-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 focus:ring-0 focus:outline-none ${
+            selectedStatus === 'Public Domain' 
+              ? 'border-green-400/40 hover:border-green-400/60 focus:border-green-400/80' 
+              : selectedStatus === 'Under Copyright'
+              ? 'border-red-400/40 hover:border-red-400/60 focus:border-red-400/80'
+              : selectedStatus === 'Unknown'
+              ? 'border-yellow-400/40 hover:border-yellow-400/60 focus:border-yellow-400/80'
+              : 'border-gray-300/40 hover:border-gray-300/60 focus:border-gray-300/80'
+          }`}>
             <div className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green-500" />
+              <FilterIcon category={selectedStatus} type="status" />
               <span className="text-sm text-gray-700">
                 {selectedStatus === 'All' ? 'Copyright Status' : selectedStatus}
               </span>
@@ -137,7 +162,15 @@ export default function SearchFilters({
               <SelectItem 
                 key={status} 
                 value={status} 
-                className="hover:bg-green-50 focus:bg-green-50"
+                className={`${
+                  status === 'Public Domain' 
+                    ? 'hover:bg-green-50 focus:bg-green-50' 
+                    : status === 'Under Copyright'
+                    ? 'hover:bg-red-50 focus:bg-red-50'
+                    : status === 'Unknown'
+                    ? 'hover:bg-yellow-50 focus:bg-yellow-50'
+                    : 'hover:bg-gray-50 focus:bg-gray-50'
+                }`}
               >
                 <div className="flex items-center gap-2">
                   <FilterIcon category={status} type="status" />
@@ -148,6 +181,27 @@ export default function SearchFilters({
           </SelectContent>
         </Select>
       </div>
+      
+      {/* Clear Filters Button */}
+      {(selectedCategory !== 'All' || selectedCountry !== 'All' || selectedStatus !== 'All') && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.8 }}
+          transition={{ duration: 0.2 }}
+        >
+          <button
+            onClick={() => {
+              onFilterChange('category', 'All');
+              onFilterChange('country', 'All');
+              onFilterChange('status', 'All');
+            }}
+            className="h-9 px-4 bg-red-50 hover:bg-red-100 border-2 border-red-300 hover:border-red-400 focus:border-red-500 focus:ring-0 focus:outline-none rounded-lg shadow-sm hover:shadow-md transition-all duration-300 text-sm text-red-700 hover:text-red-800 font-semibold"
+          >
+            ✕ Clear Filters
+          </button>
+        </motion.div>
+      )}
     </motion.div>
   );
 }

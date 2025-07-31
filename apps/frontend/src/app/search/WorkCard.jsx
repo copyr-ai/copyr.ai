@@ -6,8 +6,8 @@ import {
   Calendar, User, Globe, Clock, ExternalLink, Eye,
   CheckCircle, XCircle, AlertCircle, Book, Music, Video, Image 
 } from 'lucide-react';
-import { Button } from '../ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Button } from '../components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 
 // Utility functions
 const getStatusIcon = (status) => {

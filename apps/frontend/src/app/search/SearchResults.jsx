@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from '../ui/button';
+import { Button } from '../components/ui/button';
 import WorkCard from './WorkCard';
 
 export default function SearchResults({ 
@@ -9,7 +9,13 @@ export default function SearchResults({
   isLoading, 
   hasSearched, 
   searchQuery, 
-  onClearSearch 
+  onClearSearch,
+  setSearchQuery,
+  performSearch,
+  performSearchWithValues,
+  selectedCategory,
+  selectedCountry,
+  selectedStatus
 }) {
   if (!hasSearched) return null;
 
@@ -69,9 +75,10 @@ export default function SearchResults({
             </Button>
             <Button 
               onClick={() => {
-                // This would be passed as a prop in a real implementation
-                window.dispatchEvent(new CustomEvent('trySearch', { detail: 'gatsby' }));
+                setSearchQuery('gatsby');
+                performSearchWithValues('gatsby', selectedCategory, selectedCountry, selectedStatus, true);
               }}
+              className="bg-gradient-to-r from-brand-pink to-brand-purple hover:from-brand-pink/90 hover:to-brand-purple/90 text-white"
             >
               Try &quot;gatsby&quot;
             </Button>
