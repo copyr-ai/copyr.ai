@@ -11,7 +11,7 @@ import SearchResults from './SearchResults';
 import WorkCard from './WorkCard';
 import useSearchWithAPI from '../../hooks/useSearchWithAPI';
 import mockData from '../../data/mockWorks.json';
-import { apiClient } from '@/lib/api';
+import { apiClient } from '../../lib/api';
 import SearchHistorySidebar from '../components/SearchHistorySidebar';
 import { useWork } from '@/contexts/WorkContext';
 
