@@ -47,10 +47,10 @@ export default function SearchResults({
 
       {/* Results List */}
       <AnimatePresence>
-        <div className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {searchResults.map((work, index) => (
             <WorkCard 
-              key={work.id} 
+              key={work.id || work.slug || `search-result-${index}-${work.title?.slice(0, 20) || 'untitled'}`} 
               work={work} 
               variant="full" 
               index={index} 

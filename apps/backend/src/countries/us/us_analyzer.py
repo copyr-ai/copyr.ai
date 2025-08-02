@@ -109,7 +109,8 @@ class USAnalyzer(BaseCountryAnalyzer):
             musicbrainz_response=musicbrainz_response,
             musicbrainz_artist_response=musicbrainz_artist_response,
             search_title=title,
-            search_author=author
+            search_author=author,
+            search_work_type=work_type
         )
         
         if verbose:
@@ -123,7 +124,7 @@ class USAnalyzer(BaseCountryAnalyzer):
         status, pd_year, explanation = self.copyright_calculator.calculate_copyright_status(
             publication_year=merged_metadata.get('publication_year'),
             author_death_year=merged_metadata.get('author_death_year'),
-            work_type=merged_metadata.get('work_type', 'individual'),
+            work_type=merged_metadata.get('copyright_type', 'individual'),  # Use copyright_type for legal analysis
             country=merged_metadata.get('country', 'US')
         )
         
