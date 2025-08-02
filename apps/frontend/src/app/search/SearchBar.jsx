@@ -183,7 +183,7 @@ export default function SearchBar({
             onKeyDown={handleKeyDown}
             onFocus={handleFocus}
             onBlur={handleBlur}
-            className="pl-16 pr-40 h-full w-full text-lg border-0 bg-transparent text-brand-dark placeholder:text-gray-500 focus:ring-0 focus:outline-none rounded-xl"
+            className="pl-16 pr-40 h-full w-full text-lg border-0 bg-transparent text-brand-dark placeholder:text-sm md:placeholder:text-base placeholder:text-gray-500 focus:ring-0 focus:outline-none rounded-xl"
             autoComplete="off"
           />
           
@@ -191,7 +191,9 @@ export default function SearchBar({
           {searchQuery && (
             <button
               onClick={onClearAll}
-              className="absolute right-[120px] top-1/2 transform -translate-y-1/2 p-2 text-gray-400 hover:text-red-500 transition-colors duration-200 rounded-full hover:bg-red-50"
+              className={`absolute top-1/2 transform -translate-y-1/2 p-2 text-gray-400 hover:text-red-500 transition-all duration-200 rounded-full hover:bg-red-50 ${
+                isLoading ? 'right-[150px]' : 'right-[120px]'
+              }`}
             >
               <X className="h-4 w-4" />
             </button>

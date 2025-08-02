@@ -60,8 +60,86 @@ class MetadataNormalizer:
         return None
     
     @staticmethod
-    def determine_work_type(metadata: Dict[str, Any]) -> str:
-        """Determine work type based on metadata"""
+    def determine_work_type(metadata: Dict[str, Any], search_work_type: str = "auto") -> str:
+        """
+        Determine content type based on metadata and API sources
+        Returns: 'literary' or 'musical'
+        """
+        title = metadata.get('title', '').lower()
+        author_name = metadata.get('author_name', '').lower()
+        
+        # If work_type is explicitly provided and not auto, use it
+        if search_work_type in ['literary', 'musical']:
+            return search_work_type
+        
+        # Check if this came from MusicBrainz - strong indicator it's musical
+        source_apis = metadata.get('source_apis', [])
+        if 'musicbrainz' in source_apis:
+            return 'musical'
+        
+        # Musical keywords in title
+        musical_keywords = [
+            'symphony', 'concerto', 'sonata', 'quartet', 'quintet', 'opera', 'ballet',
+            'suite', 'overture', 'prelude', 'fugue', 'cantata', 'mass', 'requiem',
+            'oratorio', 'waltz', 'march', 'nocturne', 'etude', 'mazurka', 'polonaise',
+            'scherzo', 'minuet', 'rondo', 'song', 'aria', 'duet', 'trio', 'serenade',
+            'variations', 'rhapsody', 'fantasia', 'caprice', 'bagatelle', 'impromptu'
+        ]
+        
+        # Musical instruments and terms
+        musical_instruments = [
+            'piano', 'violin', 'cello', 'flute', 'clarinet', 'trumpet', 'horn',
+            'trombone', 'oboe', 'bassoon', 'guitar', 'harp', 'drums', 'organ',
+            'harpsichord', 'viola', 'bass', 'saxophone', 'tuba'
+        ]
+        
+        # Check title for musical indicators
+        title_words = title.split()
+        if any(keyword in title for keyword in musical_keywords):
+            return 'musical'
+        if any(instrument in title for instrument in musical_instruments):
+            return 'musical'
+        
+        # Musical composer indicators in author name
+        composer_indicators = [
+            'composer', 'musician', 'conductor', 'pianist', 'violinist', 'cellist',
+            'organist', 'singer', 'vocalist', 'songwriter', 'band', 'orchestra',
+            'choir', 'ensemble'
+        ]
+        if any(indicator in author_name for indicator in composer_indicators):
+            return 'musical'
+        
+        # Literary keywords in title
+        literary_keywords = [
+            'novel', 'story', 'tales', 'poems', 'poetry', 'prose', 'essay', 'memoir',
+            'biography', 'autobiography', 'diary', 'journal', 'letters', 'book',
+            'chapter', 'volume', 'collection', 'anthology', 'fiction', 'non-fiction'
+        ]
+        
+        if any(keyword in title for keyword in literary_keywords):
+            return 'literary'
+        
+        # Author indicators for literary works  
+        literary_indicators = [
+            'author', 'writer', 'novelist', 'poet', 'playwright', 'journalist',
+            'editor', 'translator', 'essayist', 'biographer'
+        ]
+        if any(indicator in author_name for indicator in literary_indicators):
+            return 'literary'
+        
+        # Default: if it's from Library of Congress and no musical indicators, assume literary
+        if 'library_of_congress' in source_apis and 'musicbrainz' not in source_apis:
+            return 'literary'
+        
+        # Final fallback - assume literary (most common)
+        return 'literary'
+    
+    @staticmethod
+    def determine_copyright_type(metadata: Dict[str, Any]) -> str:
+        """
+        Determine copyright ownership type (for legal analysis)
+        Returns: 'individual', 'corporate', 'anonymous', 'work_for_hire'
+        """
         author_name = metadata.get('author_name', '').lower()
         
         # Corporate authorship
@@ -83,7 +161,8 @@ class MetadataNormalizer:
         musicbrainz_response: Optional[APIResponse] = None,
         musicbrainz_artist_response: Optional[APIResponse] = None,
         search_title: str = "",
-        search_author: str = ""
+        search_author: str = "",
+        search_work_type: str = "auto"
     ) -> Dict[str, Any]:
         """
         Merge responses from different APIs into normalized metadata
@@ -98,65 +177,119 @@ class MetadataNormalizer:
             'source_links': {},
             'work_type_indicators': [],
             'search_title': search_title,
-            'search_author': search_author
+            'search_author': search_author,
+            'source_apis': []  # Track which APIs provided data
         }
         
         # Process Library of Congress data
         if loc_response and loc_response.success and loc_response.data:
+            merged['source_apis'].append('library_of_congress')
             loc_data = loc_response.data
+            relevant_matches = loc_data.get('relevant_matches', [])
             best_match = loc_data.get('best_match')
             
-            if best_match:
-                # Check if this is a high-quality match before using the data
-                # Title - only use if it's a reasonably good match
+            # Use the best match for primary metadata, but include all relevant matches for source links
+            if best_match and relevant_matches:
+                # Additional validation: ensure the match makes sense
                 loc_title = best_match.get('title', '').lower()
                 search_title_lower = merged['search_title'].lower()
+                loc_authors = [author.lower() for author in best_match.get('authors', [])]
+                search_author_lower = merged['search_author'].lower()
                 
-                # Simple title relevance check
+                # Calculate title relevance
                 title_similarity = 0
                 if search_title_lower in loc_title or loc_title in search_title_lower:
                     min_len = min(len(loc_title), len(search_title_lower))
                     max_len = max(len(loc_title), len(search_title_lower))
                     title_similarity = min_len / max_len if max_len > 0 else 0
                 
-                # Only use LOC title if similarity is reasonable (not anthology/collection)
-                if (best_match.get('title') and not merged['title'] and 
-                    (title_similarity > 0.6 or loc_response.confidence > 0.7)):
-                    merged['title'] = best_match['title']
+                # Check if we have word overlap in titles
+                search_words = set(word for word in search_title_lower.split() if len(word) > 2)
+                loc_words = set(word for word in loc_title.split() if len(word) > 2)
+                word_overlap = len(search_words & loc_words) / len(search_words | loc_words) if search_words | loc_words else 0
                 
-                # Author - find the best matching author from the list
-                authors = best_match.get('authors', [])
-                if authors and not merged['author_name']:
-                    # Try to find the target author in the list first
-                    target_author_lower = merged['search_author'].lower()
-                    selected_author = None
-                    
-                    # Look for exact or close matches to our target author
-                    for author in authors:
-                        normalized = MetadataNormalizer.normalize_author_name(author).lower()
-                        if (target_author_lower in normalized or 
-                            normalized in target_author_lower or
-                            # Handle "last, first" format matching
-                            (target_author_lower.replace(' ', ', ') in author.lower()) or
-                            (target_author_lower.replace(', ', ' ') in normalized)):
-                            selected_author = author
+                title_is_relevant = (title_similarity > 0.2 or word_overlap > 0.3)
+                
+                # Check author relevance (if we provided a real author)
+                author_is_relevant = True  # Default to true
+                if (search_author_lower and 
+                    search_author_lower not in ['', 'unknown', 'string', 'author'] and
+                    len(search_author_lower) > 2):
+                    # We have a real author - check if any LOC author relates to it
+                    author_is_relevant = False
+                    for loc_author in loc_authors:
+                        if (search_author_lower in loc_author or 
+                            loc_author in search_author_lower or
+                            any(word in loc_author for word in search_author_lower.split() if len(word) > 2)):
+                            author_is_relevant = True
                             break
+                
+                # Only use this match if both title AND author are relevant
+                if title_is_relevant and author_is_relevant:
+                    # Title
+                    if best_match.get('title') and not merged['title']:
+                        merged['title'] = best_match['title']
                     
-                    # If no good match found, use the first author
-                    if not selected_author:
-                        selected_author = authors[0]
+                    # Author - find the best matching author from the list
+                    authors = best_match.get('authors', [])
+                    if authors and not merged['author_name']:
+                        # Try to find the target author in the list first
+                        target_author_lower = merged['search_author'].lower()
+                        selected_author = None
+                        
+                        # Look for exact or close matches to our target author
+                        for author in authors:
+                            normalized = MetadataNormalizer.normalize_author_name(author).lower()
+                            if (target_author_lower in normalized or 
+                                normalized in target_author_lower or
+                                # Handle "last, first" format matching
+                                (target_author_lower.replace(' ', ', ') in author.lower()) or
+                                (target_author_lower.replace(', ', ' ') in normalized)):
+                                selected_author = author
+                                break
+                        
+                        # Use selected author if found, or fall back to first author if search author is generic/empty
+                        if selected_author:
+                            merged['author_name'] = MetadataNormalizer.normalize_author_name(selected_author)
+                        elif (not merged['search_author'] or 
+                              merged['search_author'].lower().strip() in ['', 'unknown', 'string', 'author']):
+                            # If user didn't provide a real author name, use what we found
+                            merged['author_name'] = MetadataNormalizer.normalize_author_name(authors[0])
                     
-                    merged['author_name'] = MetadataNormalizer.normalize_author_name(selected_author)
-                
-                # Publication year
-                if best_match.get('publication_year') and not merged['publication_year']:
-                    merged['publication_year'] = best_match['publication_year']
-                
-                # Source link
-                if best_match.get('url'):
-                    merged['source_links']['loc'] = best_match['url']
-                
-                merged['confidence_sources']['loc'] = loc_response.confidence
+                    # Publication year
+                    if best_match.get('publication_year') and not merged['publication_year']:
+                        merged['publication_year'] = best_match['publication_year']
+                    
+                    # Source links - include multiple relevant matches
+                    loc_sources = []
+                    for i, match in enumerate(relevant_matches[:3]):  # Up to 3 most relevant
+                        if match.get('url'):
+                            title = match.get('title', 'Unknown')
+                            year = match.get('publication_year', '')
+                            year_str = f" ({year})" if year else ""
+                            loc_sources.append({
+                                'url': match['url'],
+                                'title': f"{title}{year_str}",
+                                'relevance_rank': i + 1
+                            })
+                    
+                    if loc_sources:
+                        if len(loc_sources) == 1:
+                            # Single source - use simple format for backward compatibility
+                            merged['source_links']['loc'] = loc_sources[0]['url']
+                        else:
+                            # Multiple sources - use array format
+                            merged['source_links']['loc'] = loc_sources
+                    
+                    merged['confidence_sources']['loc'] = loc_response.confidence
+                else:
+                    # Match didn't pass relevance checks - record but don't use data
+                    merged['confidence_sources']['loc'] = 0.1  # Very low confidence
+                    if best_match.get('url'):
+                        merged['source_links']['loc_rejected'] = best_match['url']
+            else:
+                # No valid match found by LOC client
+                merged['confidence_sources']['loc'] = 0.0
         
         # Process HathiTrust data
         if hathi_response and hathi_response.success and hathi_response.data:
@@ -188,6 +321,7 @@ class MetadataNormalizer:
         
         # Process MusicBrainz work data
         if musicbrainz_response and musicbrainz_response.success and musicbrainz_response.data:
+            merged['source_apis'].append('musicbrainz')
             mb_data = musicbrainz_response.data
             best_match = mb_data.get('best_match')
             
@@ -212,17 +346,26 @@ class MetadataNormalizer:
             artist_data = musicbrainz_artist_response.data
             best_artist = artist_data.get('best_match')
             
-            if best_artist:
+            # Use MusicBrainz artist data if reasonable confidence OR if user search was generic
+            use_mb_artist = (best_artist and 
+                           (musicbrainz_artist_response.confidence > 0.3 or
+                            not merged.get('search_author') or
+                            merged.get('search_author', '').lower().strip() in ['', 'unknown', 'string', 'author']))
+            
+            if use_mb_artist:
                 # Death year
                 if best_artist.get('death_year') and not merged['author_death_year']:
                     merged['author_death_year'] = best_artist['death_year']
                 
-                # Country
+                # Country  
                 if best_artist.get('country'):
                     merged['country'] = best_artist['country']
         
-        # Determine work type
-        merged['work_type'] = MetadataNormalizer.determine_work_type(merged)
+        # Determine work type (content type: literary/musical)
+        merged['work_type'] = MetadataNormalizer.determine_work_type(merged, search_work_type)
+        
+        # Also determine copyright type for legal purposes
+        merged['copyright_type'] = MetadataNormalizer.determine_copyright_type(merged)
         
         return merged
     

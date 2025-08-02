@@ -1,5 +1,7 @@
 import { Nunito_Sans } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { WorkProvider } from "@/contexts/WorkContext";
 
 const nunitoSans = Nunito_Sans({
   subsets: ["latin"],
@@ -78,7 +80,11 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body className={`${nunitoSans.variable} font-sans antialiased`}>
-        {children}
+        <AuthProvider>
+          <WorkProvider>
+            {children}
+          </WorkProvider>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -1,19 +1,21 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { useWork } from '@/contexts/WorkContext';
 import { 
   ArrowLeft, Share2, Download, ExternalLink, 
   Calendar, User, Globe, Clock, CheckCircle, 
   XCircle, AlertCircle, Copy
 } from 'lucide-react';
-import { Button } from '../../components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import Navbar from '../../components/Navbar';
-import Footer from '../../components/Footer';
+import { Button } from '../components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
-import mockData from '../../../data/mockWorks.json';
+import mockData from '../../data/mockWorks.json';
+import { apiClient } from '../../lib/api';
 
 // Use centralized mock data
 const mockSearchResults = mockData.works;
@@ -28,18 +30,15 @@ const useCustomCursor = () => {
 
   useEffect(() => {
     const updateMousePosition = (e) => {
-      // Throttle updates using requestAnimationFrame
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
       }
       
       rafRef.current = requestAnimationFrame(() => {
         const now = Date.now();
-        // Limit updates to 60fps max
         if (now - lastUpdate.current > 16) {
           setMousePosition({ x: e.clientX, y: e.clientY });
           
-          // Check footer less frequently to improve performance
           if (now - lastUpdate.current > 50) {
             const footerElement = document.querySelector('footer');
             if (footerElement) {
@@ -59,7 +58,6 @@ const useCustomCursor = () => {
     const handleMouseEnter = () => setIsHovering(true);
     const handleMouseLeave = () => setIsHovering(false);
     
-    // Use passive listeners for better performance
     window.addEventListener('mousemove', updateMousePosition, { passive: true });
     
     const interactiveElements = document.querySelectorAll('button, a, [role="button"]');
@@ -83,22 +81,117 @@ const useCustomCursor = () => {
   return { mousePosition, isHovering, isOverFooter };
 };
 
-export default function WorkDetailPage() {
-  const params = useParams();
+function WorkDetailContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { mousePosition, isHovering, isOverFooter } = useCustomCursor();
+  const { getCurrentSearchResults } = useWork();
   const [work, setWork] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [copySuccess, setCopySuccess] = useState(false);
 
   useEffect(() => {
-    // Find work by slug
-    const foundWork = mockSearchResults.find(w => w.slug === params.slug);
-    if (foundWork) {
-      setWork(foundWork);
-    }
-    setIsLoading(false);
-  }, [params.slug]);
+    const findWork = async () => {
+      console.log('Work page - Search params:', searchParams.toString());
+      
+      // Get search parameters
+      const title = searchParams.get('title');
+      const author = searchParams.get('author');
+      const year = searchParams.get('year');
+      const country = searchParams.get('country');
+      
+      console.log('Work page - Looking for work:', { title, author, year, country });
+      
+      let foundWork = null;
+      
+      // First try to find in current search results (for immediate navigation)
+      const currentResults = getCurrentSearchResults();
+      if (currentResults && currentResults.length > 0) {
+        foundWork = currentResults.find(w => 
+          w.title === title && 
+          w.author_name === author && 
+          w.publication_year?.toString() === year
+        );
+        console.log('Work page - Found in current results:', foundWork);
+      }
+      
+      // If not found in current results, try mock data
+      if (!foundWork) {
+        foundWork = mockSearchResults.find(w => 
+          w.title === title && 
+          w.author_name === author && 
+          w.publication_year?.toString() === year
+        );
+        console.log('Work page - Found in mock data:', foundWork);
+      }
+      
+      // If still not found, try API search
+      if (!foundWork && title) {
+        try {
+          console.log('Work page - Searching API for work');
+          const searchResult = await apiClient.searchWorks({
+            title: title,
+            author: author || null,
+            work_type: null,
+            limit: 1,
+            country: country || 'US',
+            user_id: null
+          });
+
+          if (searchResult?.results && searchResult.results.length > 0) {
+            const apiWork = searchResult.results[0];
+            console.log('Work page - Found work via API search:', apiWork);
+            
+            foundWork = {
+              id: `work-${Date.now()}`,
+              slug: `work-${Date.now()}`,
+              title: apiWork.title,
+              author_name: apiWork.author_name,
+              publication_year: apiWork.publication_year,
+              country: country || 'US',
+              status: apiWork.status,
+              work_type: apiWork.work_type,
+              category: apiWork.work_type === 'literary' ? 'Literature' : apiWork.work_type === 'musical' ? 'Music' : 'Unknown',
+              confidence_score: apiWork.confidence_score,
+              notes: apiWork.notes || 'No analysis available.',
+              enters_public_domain: apiWork.enters_public_domain,
+              source: apiWork.source,
+              published: true,
+              queried_at: new Date().toISOString()
+            };
+          }
+        } catch (error) {
+          console.error('Work page - API search failed:', error);
+        }
+      }
+      
+      if (foundWork) {
+        const completeWork = {
+          slug: foundWork.slug || `work-${Date.now()}`,
+          id: foundWork.id || `work-${Date.now()}`,
+          title: foundWork.title || 'Unknown Title',
+          author_name: foundWork.author_name || 'Unknown Author',
+          publication_year: foundWork.publication_year || 'Unknown',
+          country: foundWork.country || 'Unknown',
+          status: foundWork.status || 'Unknown',
+          work_type: foundWork.work_type || foundWork.category || 'Unknown',
+          category: foundWork.category || foundWork.work_type || 'Unknown',
+          confidence_score: foundWork.confidence_score || 0,
+          notes: foundWork.notes || 'No analysis available.',
+          enters_public_domain: foundWork.enters_public_domain,
+          source_links: foundWork.source_links || {},
+          source: foundWork.source,
+          published: foundWork.published !== undefined ? foundWork.published : true,
+          queried_at: foundWork.queried_at || new Date().toISOString(),
+          ...foundWork
+        };
+        setWork(completeWork);
+      }
+      setIsLoading(false);
+    };
+
+    findWork();
+  }, [searchParams, getCurrentSearchResults]);
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -117,11 +210,9 @@ export default function WorkDetailPage() {
     setTimeout(() => setCopySuccess(false), 2000);
   };
 
-
   if (isLoading) {
     return (
       <div className="grainy-bg min-h-screen overflow-x-hidden relative">
-        {/* Custom Cursor & Effects */}
         <div 
           className={`custom-cursor ${isHovering ? 'hover' : ''} ${isOverFooter ? 'footer' : ''}`}
           style={{
@@ -152,7 +243,6 @@ export default function WorkDetailPage() {
   if (!work) {
     return (
       <div className="grainy-bg min-h-screen overflow-x-hidden relative">
-        {/* Custom Cursor & Effects */}
         <div 
           className={`custom-cursor ${isHovering ? 'hover' : ''} ${isOverFooter ? 'footer' : ''}`}
           style={{
@@ -175,7 +265,7 @@ export default function WorkDetailPage() {
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-brand-dark mb-4">Work Not Found</h1>
-            <p className="text-gray-600 mb-6">The work you&apos;re looking for doesn&apos;t exist.</p>
+            <p className="text-gray-600 mb-6">The work you&apos;re looking for doesn&apos;t exist or couldn&apos;t be found.</p>
             <Button onClick={() => router.push('/search')}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Search
@@ -189,7 +279,6 @@ export default function WorkDetailPage() {
 
   return (
     <div className="grainy-bg min-h-screen overflow-x-hidden relative">
-      {/* Custom Cursor & Effects */}
       <div 
         className={`custom-cursor ${isHovering ? 'hover' : ''} ${isOverFooter ? 'footer' : ''}`}
         style={{
@@ -211,7 +300,6 @@ export default function WorkDetailPage() {
       <Navbar />
       
       <div className="pt-40 pb-20 px-4 max-w-4xl mx-auto work-detail-content">
-        {/* Main Content */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -302,27 +390,72 @@ export default function WorkDetailPage() {
           </Card>
 
           {/* Source Links */}
-          {work.source_links && Object.keys(work.source_links).length > 0 && (
+          {((work.source_links && Object.keys(work.source_links).length > 0) || (work.source && work.source.trim())) && (
             <Card className="mb-6 sm:mb-8">
               <CardHeader>
                 <CardTitle className="text-lg sm:text-xl text-brand-dark">Sources & References</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-3">
-                  {Object.entries(work.source_links).map(([source, url]) => (
-                    <Button
-                      key={source}
-                      variant="outline"
-                      className="justify-start h-auto p-3 sm:p-4 text-left"
-                      onClick={() => window.open(url, '_blank')}
-                    >
-                      <ExternalLink className="h-4 w-4 mr-3 flex-shrink-0" />
-                      <div className="text-left min-w-0 flex-1">
-                        <div className="font-medium text-sm sm:text-base">{source.toUpperCase()}</div>
-                        <div className="text-xs sm:text-sm text-gray-600 truncate">{url}</div>
-                      </div>
-                    </Button>
-                  ))}
+                  {/* Handle legacy source_links object format */}
+                  {work.source_links && Object.keys(work.source_links).length > 0 && 
+                    Object.entries(work.source_links).map(([source, url]) => (
+                      <Button
+                        key={source}
+                        variant="outline"
+                        className="justify-start h-auto p-3 sm:p-4 text-left"
+                        onClick={() => window.open(url, '_blank')}
+                      >
+                        <ExternalLink className="h-4 w-4 mr-3 flex-shrink-0" />
+                        <div className="text-left min-w-0 flex-1">
+                          <div className="font-medium text-sm sm:text-base">{source.toUpperCase()}</div>
+                          <div className="text-xs sm:text-sm text-gray-600 truncate">{url}</div>
+                        </div>
+                      </Button>
+                    ))
+                  }
+                  
+                  {/* Handle new comma-separated source URLs */}
+                  {work.source && typeof work.source === 'string' && work.source.trim() && 
+                    work.source.split(',').filter(url => {
+                      const trimmedUrl = url.trim();
+                      return trimmedUrl && trimmedUrl.startsWith('http');
+                    }).map((url, index) => {
+                      const trimmedUrl = url.trim();
+                      
+                      // Extract source name from URL with more specific labeling
+                      let sourceName = 'Source';
+                      if (trimmedUrl.includes('musicbrainz.org')) {
+                        sourceName = 'MusicBrainz';
+                      } else if (trimmedUrl.includes('lccn.loc.gov')) {
+                        const lccnMatch = trimmedUrl.match(/lccn\.loc\.gov\/(\w+)/);
+                        sourceName = lccnMatch ? `Library of Congress (${lccnMatch[1]})` : 'Library of Congress';
+                      } else if (trimmedUrl.includes('loc.gov') || trimmedUrl.includes('catalog.loc.gov')) {
+                        sourceName = 'Library of Congress';
+                      } else if (trimmedUrl.includes('hathitrust.org')) {
+                        sourceName = 'HathiTrust';
+                      } else if (trimmedUrl.includes('archive.org')) {
+                        sourceName = 'Internet Archive';
+                      } else if (trimmedUrl.includes('gutenberg.org')) {
+                        sourceName = 'Project Gutenberg';
+                      }
+                      
+                      return (
+                        <Button
+                          key={`work-source-${index}-${trimmedUrl.slice(0, 20)}`}
+                          variant="outline"
+                          className="justify-start h-auto p-3 sm:p-4 text-left"
+                          onClick={() => window.open(trimmedUrl, '_blank')}
+                        >
+                          <ExternalLink className="h-4 w-4 mr-3 flex-shrink-0" />
+                          <div className="text-left min-w-0 flex-1">
+                            <div className="font-medium text-sm sm:text-base">{sourceName}</div>
+                            <div className="text-xs sm:text-sm text-gray-600 truncate">{trimmedUrl}</div>
+                          </div>
+                        </Button>
+                      );
+                    })
+                  }
                 </div>
               </CardContent>
             </Card>
@@ -359,5 +492,19 @@ export default function WorkDetailPage() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function WorkDetailPage() {
+  return (
+    <Suspense fallback={
+      <div className="grainy-bg min-h-screen overflow-x-hidden relative">
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-pink"></div>
+        </div>
+      </div>
+    }>
+      <WorkDetailContent />
+    </Suspense>
   );
 }

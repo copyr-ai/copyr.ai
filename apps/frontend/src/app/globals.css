@@ -400,4 +400,14 @@ html::-webkit-scrollbar {
   .gradient-border-simple-content:hover {
     background: #fafafa;
   }
+  
+  /* Hide scrollbar for elements with scrollbar-hide class */
+  .scrollbar-hide {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* Internet Explorer 10+ */
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none; /* Safari and Chrome */
+  }
 }
