@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { apiClient } from '../../lib/api';
+import { apiClient } from '@/lib/api';
 
 export default function useSearchWithAPI() {
   const router = useRouter();
