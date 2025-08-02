@@ -1,7 +1,17 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "cd apps/frontend && npm run build",
-  "devCommand": "cd apps/frontend && npm run dev",
-  "installCommand": "cd apps/frontend && npm install",
-  "outputDirectory": "apps/frontend/.next"
+  "version": 2,
+  "functions": {
+    "apps/frontend/src/app/api/**/*.js": {
+      "runtime": "@vercel/node"
+    }
+  },
+  "builds": [
+    {
+      "src": "apps/frontend/next.config.mjs",
+      "use": "@vercel/next",
+      "config": {
+        "zeroConfig": true
+      }
+    }
+  ]
 }
