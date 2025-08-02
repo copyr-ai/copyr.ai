@@ -15,7 +15,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
 import mockData from '../../data/mockWorks.json';
-import { apiClient } from '../../lib/api';
+import { apiClient } from '@/lib/api';
 
 // Use centralized mock data
 const mockSearchResults = mockData.works;
