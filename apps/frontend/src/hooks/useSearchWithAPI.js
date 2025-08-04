@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWork } from '@/contexts/WorkContext';
 import { apiClient } from '../lib/api';
 
 export default function useSearchWithAPI() {
   const router = useRouter();
   const { user, saveSearchToHistory } = useAuth();
+  const { storeSearchResults } = useWork();
   
   // Initialize state - will be updated from URL params after hydration
   const [searchQuery, setSearchQuery] = useState('');
@@ -257,6 +259,9 @@ export default function useSearchWithAPI() {
       });
       
       setSearchResults(filteredResults);
+      
+      // Store search results in WorkContext for work page navigation
+      storeSearchResults(filteredResults);
       
       // Cache the search results for page refresh
       if (filteredResults && filteredResults.length > 0) {

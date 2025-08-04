@@ -94,9 +94,9 @@ function WorkDetailContent() {
     const findWork = async () => {
       console.log('Work page - Search params:', searchParams.toString());
       
-      // Get search parameters
-      const title = searchParams.get('title');
-      const author = searchParams.get('author');
+      // Get search parameters and decode them
+      const title = decodeURIComponent(searchParams.get('title') || '');
+      const author = decodeURIComponent(searchParams.get('author') || '');
       const year = searchParams.get('year');
       const country = searchParams.get('country');
       
@@ -107,21 +107,23 @@ function WorkDetailContent() {
       // First try to find in current search results (for immediate navigation)
       const currentResults = getCurrentSearchResults();
       if (currentResults && currentResults.length > 0) {
-        foundWork = currentResults.find(w => 
-          w.title === title && 
-          w.author_name === author && 
-          w.publication_year?.toString() === year
-        );
+        foundWork = currentResults.find(w => {
+          const titleMatch = w.title?.toLowerCase().trim() === title.toLowerCase().trim();
+          const authorMatch = !author || w.author_name?.toLowerCase().trim() === author.toLowerCase().trim();
+          const yearMatch = !year || w.publication_year?.toString() === year;
+          return titleMatch && authorMatch && yearMatch;
+        });
         console.log('Work page - Found in current results:', foundWork);
       }
       
       // If not found in current results, try mock data
       if (!foundWork) {
-        foundWork = mockSearchResults.find(w => 
-          w.title === title && 
-          w.author_name === author && 
-          w.publication_year?.toString() === year
-        );
+        foundWork = mockSearchResults.find(w => {
+          const titleMatch = w.title?.toLowerCase().trim() === title.toLowerCase().trim();
+          const authorMatch = !author || w.author_name?.toLowerCase().trim() === author.toLowerCase().trim();
+          const yearMatch = !year || w.publication_year?.toString() === year;
+          return titleMatch && authorMatch && yearMatch;
+        });
         console.log('Work page - Found in mock data:', foundWork);
       }
       
