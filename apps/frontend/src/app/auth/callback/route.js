@@ -6,10 +6,11 @@ export async function GET(request) {
   const code = searchParams.get('code')
   const next = searchParams.get('next') ?? '/'
 
-  // Use VERCEL_URL or fallback to origin
-  const baseUrl = process.env.VERCEL_URL 
-    ? `https://${process.env.VERCEL_URL}`
-    : new URL(request.url).origin
+  // Use custom production domain or fallback
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 
+    (process.env.NODE_ENV === 'production' 
+      ? 'https://copyrai.vercel.app'  
+      : new URL(request.url).origin)
 
   if (code) {
     const supabase = await createSupabaseServerClient()
