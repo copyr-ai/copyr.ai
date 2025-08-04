@@ -1,18 +1,13 @@
 // Use environment variable if set, otherwise default to production for deployed apps
 // and localhost for local development
 const getApiBaseUrl = () => {
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL;
+  // In production, always use production backend unless explicitly overridden
+  if (process.env.NODE_ENV === 'production') {
+    return process.env.NEXT_PUBLIC_API_URL || 'https://copyr-backend.onrender.com';
   }
   
-  // Check if we're running in development mode
-  if (process.env.NODE_ENV === 'development' || 
-      (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))) {
-    return 'http://localhost:8000';
-  }
-  
-  // Default to production backend
-  return 'https://copyr-backend.onrender.com';
+  // In development, use localhost or override
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 };
 
 const API_BASE_URL = getApiBaseUrl();
