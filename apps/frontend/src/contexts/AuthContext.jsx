@@ -24,7 +24,9 @@ export const AuthProvider = ({ children }) => {
     const { data, error } = await supabaseClient.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`
+        redirectTo: process.env.NODE_ENV === 'production' 
+          ? `https://copyr-ai.vercel.app/auth/callback`
+          : `${window.location.origin}/auth/callback`
       }
     })
     
