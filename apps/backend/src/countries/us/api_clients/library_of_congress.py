@@ -200,6 +200,9 @@ class LibraryOfCongressClient(BaseAPIClient):
                 if record_info is not None and record_info.text:
                     record_id = record_info.text.strip()
             
+            # Extract work_type from MODS professional cataloging
+            work_type, confidence = self._extract_work_type_from_mods(mods_elem)
+            
             # Construct URL
             url = ''
             if lccn_id:
@@ -215,12 +218,91 @@ class LibraryOfCongressClient(BaseAPIClient):
                 'publication_year': pub_year,
                 'url': url,
                 'record_id': record_id,
-                'raw_mods': mods_elem
+                'raw_mods': mods_elem,
+                'work_type': work_type,
+                'work_type_confidence': confidence,
+                'classification_source': 'LOC_professional_cataloging'
             }
             
         except Exception:
             # Skip malformed records silently
             return None
+
+    def _extract_work_type_from_mods(self, mods_elem) -> tuple[str, float]:
+        """
+        Extract work_type using LOC's professional cataloging metadata
+        Returns (work_type, confidence_score)
+        """
+        if mods_elem is None:
+            return 'literary', 0.50
+        
+        # 1. Check typeOfResource (highest confidence - professional cataloging)
+        type_elem = mods_elem.find('.//mods:typeOfResource', self.NAMESPACES)
+        if type_elem is not None and type_elem.text:
+            resource_type = type_elem.text.lower().strip()
+            if any(term in resource_type for term in ['notated music', 'sound recording-musical', 'sound recording']):
+                return 'musical', 0.95
+            elif any(term in resource_type for term in ['text', 'mixed material']):
+                return 'literary', 0.95
+        
+        # 2. Check genre (second highest confidence)
+        genre_elems = mods_elem.findall('.//mods:genre', self.NAMESPACES)
+        musical_genre_score = literary_genre_score = 0
+        
+        for genre in genre_elems:
+            if genre.text:
+                genre_text = genre.text.lower().strip()
+                # Musical genres
+                if any(term in genre_text for term in [
+                    'music', 'musical', 'song', 'opera', 'symphony', 'concerto', 
+                    'sonata', 'composition', 'score', 'recording'
+                ]):
+                    musical_genre_score += 1
+                # Literary genres  
+                elif any(term in genre_text for term in [
+                    'book', 'novel', 'biography', 'essay', 'poetry', 'fiction',
+                    'nonfiction', 'literature', 'memoir', 'autobiography'
+                ]):
+                    literary_genre_score += 1
+        
+        if musical_genre_score > literary_genre_score:
+            return 'musical', 0.90
+        elif literary_genre_score > musical_genre_score:
+            return 'literary', 0.90
+        
+        # 3. Check subject headings for context
+        subject_elems = mods_elem.findall('.//mods:subject/mods:topic', self.NAMESPACES)
+        musical_subjects = literary_subjects = 0
+        
+        for subject in subject_elems:
+            if subject.text:
+                subject_text = subject.text.lower().strip()
+                if any(term in subject_text for term in [
+                    'music', 'composers', 'musical', 'musicians', 'songs'
+                ]):
+                    musical_subjects += 1
+                elif any(term in subject_text for term in [
+                    'literature', 'authors', 'books', 'writing', 'novels'
+                ]):
+                    literary_subjects += 1
+        
+        if musical_subjects > literary_subjects and musical_subjects > 0:
+            return 'musical', 0.80
+        elif literary_subjects > musical_subjects and literary_subjects > 0:
+            return 'literary', 0.80
+        
+        # 4. Check for form/genre attributes
+        form_elems = mods_elem.findall('.//mods:physicalDescription/mods:form', self.NAMESPACES)
+        for form in form_elems:
+            if form.text:
+                form_text = form.text.lower().strip()
+                if any(term in form_text for term in ['sound', 'audio', 'musical']):
+                    return 'musical', 0.75
+                elif any(term in form_text for term in ['text', 'print', 'electronic resource']):
+                    return 'literary', 0.75
+        
+        # Default fallback for LOC records - assume literary (books are most common)
+        return 'literary', 0.70
     
     def _calculate_sru_confidence(self, results: Dict[str, Any], title: str, author: str) -> float:
         """Calculate confidence score for SRU results"""

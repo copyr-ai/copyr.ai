@@ -17,6 +17,7 @@ from src.copyright_analyzer import CopyrightAnalyzer
 
 load_dotenv()
 
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -113,11 +114,13 @@ class SearchResultItem(BaseModel):
     title: str
     author_name: str
     publication_year: Optional[int]
-    work_type: str
+    work_type: Optional[str] = None  # Can be "literary", "musical", or None if uncertain
     status: str
     enters_public_domain: Optional[int]
     confidence_score: float
     source: str  # Can be a single URL or comma-separated URLs for merged records
+    work_type_confidence: Optional[float] = None  # Confidence in work_type classification
+    classification_source: Optional[str] = None   # Source of classification (e.g., "LOC_professional_cataloging")
 
 class SearchResponse(BaseModel):
     query: Dict[str, Any]
@@ -588,10 +591,11 @@ async def search_works(request: SearchRequest):
                     
                     # Analyze the work for copyright status using the base work
                     try:
+                        # CRITICAL: Always use "auto" for classification - never override with user filter
                         analysis_result = copyright_analyzer.analyze_work(
                             title=base_work.get("title", ""),
                             author=base_work.get("author", ""),
-                            work_type=request.work_type or "auto",
+                            work_type="auto",  # Always auto - let professional data decide
                             verbose=False,
                             country=request.country
                         )
@@ -607,7 +611,9 @@ async def search_works(request: SearchRequest):
                             status=analysis_result.status,
                             enters_public_domain=analysis_result.enters_public_domain,
                             confidence_score=analysis_result.confidence_score,
-                            source=combined_source_urls
+                            source=combined_source_urls,
+                            work_type_confidence=analysis_result.work_type_confidence,
+                            classification_source=analysis_result.classification_source
                         ))
                         
                         # Add to existing works to prevent future duplicates in this search
@@ -697,6 +703,15 @@ async def search_works(request: SearchRequest):
         
         # Merge duplicate records with different source URLs
         merged_results = merge_duplicate_records(results)
+        
+        # Apply work_type filter AFTER classification (never override classifications)
+        if request.work_type and request.work_type in ['literary', 'musical']:
+            filtered_results = []
+            for result in merged_results:
+                if result.work_type == request.work_type:
+                    filtered_results.append(result)
+                # If work_type is None, we don't know - exclude from filtered results
+            merged_results = filtered_results
         
         # Prepare response
         response = SearchResponse(
