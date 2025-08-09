@@ -60,22 +60,37 @@ class MetadataNormalizer:
         return None
     
     @staticmethod
-    def determine_work_type(metadata: Dict[str, Any], search_work_type: str = "auto") -> str:
+    def determine_work_type(metadata: Dict[str, Any], search_work_type: str = "auto") -> Optional[str]:
         """
         Determine content type based on metadata and API sources
-        Returns: 'literary' or 'musical'
+        Uses professional cataloging first, then falls back to heuristics
+        Returns: 'literary', 'musical', or None if confidence is too low
+        
+        PRINCIPLE: Better to return None than wrong classification
         """
-        title = metadata.get('title', '').lower()
-        author_name = metadata.get('author_name', '').lower()
+        # If work_type is explicitly provided and not auto, use it ONLY for filtering
+        # NOT for overriding professional classifications
         
-        # If work_type is explicitly provided and not auto, use it
-        if search_work_type in ['literary', 'musical']:
-            return search_work_type
+        # 1. PRIORITY: Use LOC professional cataloging if available
+        if metadata.get('work_type') and metadata.get('classification_source') == 'LOC_professional_cataloging':
+            confidence = metadata.get('work_type_confidence')
+            
+            # Trust LOC data if we have any confidence score
+            if confidence is not None and confidence >= 0.50:  # Lowered threshold for LOC
+                return metadata['work_type']
+            elif confidence is not None:
+                # Low confidence LOC data - still better than guessing
+                return metadata['work_type']
+            # If confidence is None, LOC extraction failed - continue to heuristics
         
-        # Check if this came from MusicBrainz - strong indicator it's musical
+        # 2. Use MusicBrainz as strong indicator for musical works
         source_apis = metadata.get('source_apis', [])
         if 'musicbrainz' in source_apis:
             return 'musical'
+        
+        # 3. Fall back to heuristic analysis - but be conservative
+        title = metadata.get('title', '').lower()
+        author_name = metadata.get('author_name', '').lower()
         
         # Musical keywords in title
         musical_keywords = [
@@ -127,12 +142,14 @@ class MetadataNormalizer:
         if any(indicator in author_name for indicator in literary_indicators):
             return 'literary'
         
-        # Default: if it's from Library of Congress and no musical indicators, assume literary
+        # Conservative fallback: Only classify if we have strong indicators
         if 'library_of_congress' in source_apis and 'musicbrainz' not in source_apis:
+            # LOC-only source with no clear indicators - lean literary (books are most common at LOC)
             return 'literary'
         
-        # Final fallback - assume literary (most common)
-        return 'literary'
+        # CONSERVATIVE: If we can't determine with confidence, return None
+        # Better to have no classification than wrong classification
+        return None
     
     @staticmethod
     def determine_copyright_type(metadata: Dict[str, Any]) -> str:
@@ -259,6 +276,12 @@ class MetadataNormalizer:
                     # Publication year
                     if best_match.get('publication_year') and not merged['publication_year']:
                         merged['publication_year'] = best_match['publication_year']
+                    
+                    # LOC Professional work_type classification (highest priority)
+                    if best_match.get('work_type') and best_match.get('classification_source') == 'LOC_professional_cataloging':
+                        merged['work_type'] = best_match['work_type']
+                        merged['work_type_confidence'] = best_match.get('work_type_confidence', 0.70)
+                        merged['classification_source'] = best_match['classification_source']
                     
                     # Source links - include multiple relevant matches
                     loc_sources = []
@@ -387,6 +410,8 @@ class MetadataNormalizer:
             country=merged_metadata.get('country', 'US'),
             work_type=merged_metadata.get('work_type', 'individual'),
             source_links=merged_metadata.get('source_links', {}),
+            work_type_confidence=merged_metadata.get('work_type_confidence'),
+            classification_source=merged_metadata.get('classification_source'),
             queried_at=datetime.utcnow()
         )
         

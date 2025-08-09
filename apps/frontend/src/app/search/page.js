@@ -400,6 +400,66 @@ export default function SearchPage() {
           />
         </div>
 
+        {/* Search Progress Animation - Only when searching and loading */}
+        {hasSearched && isLoading && (
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -30 }}
+            transition={{ duration: 0.6 }}
+            className="px-4 max-w-7xl mx-auto mb-20"
+          >
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-8 h-60">
+              <div className="flex flex-col items-center justify-center h-full">
+                <h3 className="text-lg font-semibold text-brand-dark mb-6 text-center">Analyzing Database</h3>
+                <div className="space-y-4 w-full max-w-md">
+                  {[
+                    { text: "Scanning copyright databases...", delay: 0, duration: 2.5 },
+                    { text: "Cross-referencing work metadata...", delay: 2.5, duration: 2.5 },
+                    { text: "Analyzing publication records...", delay: 5.0, duration: 2.5 },
+                    { text: "Calculating confidence scores...", delay: 7.5, duration: 2.5 },
+                    { text: "Preparing results...", delay: 10.0, duration: 3.0 }
+                  ].map((step, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0.3 }}
+                      animate={{ 
+                        opacity: [0.3, 1, 1],
+                        scale: [1, 1.02, 1]
+                      }}
+                      transition={{
+                        duration: step.duration,
+                        delay: step.delay,
+                        ease: "easeInOut",
+                        times: [0, 0.1, 1]
+                      }}
+                      className={`text-base text-left transition-colors duration-500`}
+                      style={{
+                        color: index === 0 ? '#ec4899' : // Always start with brand color for active step
+                               '#6b7280' // Default gray for inactive
+                      }}
+                    >
+                      <motion.span
+                        animate={{
+                          color: ['#6b7280', '#ec4899', '#8b5cf6'] // gray -> pink -> purple (completed)
+                        }}
+                        transition={{
+                          duration: step.duration,
+                          delay: step.delay,
+                          ease: "easeInOut",
+                          times: [0, 0.1, 1]
+                        }}
+                      >
+                        • {step.text}
+                      </motion.span>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {/* Browse More Section - Only when searching */}
         {hasSearched && (
           <motion.div 
@@ -408,19 +468,19 @@ export default function SearchPage() {
             transition={{ duration: 0.8, delay: 0.5 }}
             className="px-4 max-w-7xl mx-auto mb-20"
           >
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-brand-dark mb-4">Browse More Works</h2>
-            <p className="text-gray-600">Discover other works in our copyright database</p>
-          </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {(popularWorks.length > 0 ? popularWorks : mockData.works).slice(0, 6).map((work, index) => (
-              <WorkCard 
-                key={`browse-${work.id}`} 
-                work={work} 
-                variant="preview" 
-                index={index} 
-              />
-            ))}
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold text-brand-dark mb-4">Browse More Works</h2>
+              <p className="text-gray-600">Discover other works in our copyright database</p>
+            </div>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {(popularWorks.length > 0 ? popularWorks : mockData.works).slice(0, 6).map((work, index) => (
+                <WorkCard 
+                  key={`browse-${work.id}`} 
+                  work={work} 
+                  variant="preview" 
+                  index={index} 
+                />
+              ))}
             </div>
           </motion.div>
         )}

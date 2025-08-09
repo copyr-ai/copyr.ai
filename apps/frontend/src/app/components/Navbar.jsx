@@ -122,11 +122,15 @@ export default function Navbar({ sidebarCollapsed = null, isMobileSidebarOpen = 
       return "fixed top-6 left-1/2 transform -translate-x-1/2"
     }
     
-    // On search page, adjust for sidebar (only on desktop)
+    // On search page, center in remaining space after sidebar (only on desktop)
     if (sidebarCollapsed) {
-      return "fixed top-6 left-1/2 md:left-[calc(50%+24px)] transform -translate-x-1/2" // 24px = half of 48px sidebar width
+      // Collapsed sidebar: 48px (3rem) width, center in remaining space
+      // Available space starts at 48px, so center is at 48px + (100vw - 48px)/2
+      return "fixed top-6 left-1/2 md:left-[calc(48px+(100vw-48px)/2)] transform -translate-x-1/2"
     } else {
-      return "fixed top-6 left-1/2 md:left-[calc(50%+128px)] transform -translate-x-1/2" // 128px = half of 256px sidebar width
+      // Expanded sidebar: 320px (20rem) width, center in remaining space  
+      // Available space starts at 320px, so center is at 320px + (100vw - 320px)/2
+      return "fixed top-6 left-1/2 md:left-[calc(320px+(100vw-320px)/2)] transform -translate-x-1/2"
     }
   }
 
