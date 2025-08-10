@@ -79,6 +79,24 @@ export default function SearchPage() {
     }
   }, [searchResults, addToSearchHistory, storeSearchResults, hasSearched]);
 
+  // Auto-scroll to search animation when search starts
+  useEffect(() => {
+    if (hasSearched && isLoading) {
+      // Small delay to ensure the animation element is rendered
+      const timer = setTimeout(() => {
+        const animationElement = document.getElementById('search-progress-animation');
+        if (animationElement) {
+          animationElement.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          });
+        }
+      }, 100); // 100ms delay to ensure DOM is updated
+
+      return () => clearTimeout(timer);
+    }
+  }, [hasSearched, isLoading]);
+
   // Note: Page refresh and back navigation caching is now handled in useSearchWithAPI hook
 
   // Fetch popular works from database with caching
@@ -403,6 +421,7 @@ export default function SearchPage() {
         {/* Search Progress Animation - Only when searching and loading */}
         {hasSearched && isLoading && (
           <motion.div 
+            id="search-progress-animation"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -30 }}
@@ -410,51 +429,169 @@ export default function SearchPage() {
             className="px-4 max-w-7xl mx-auto mb-20"
           >
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-8 h-60">
-              <div className="flex flex-col items-center justify-center h-full">
-                <h3 className="text-lg font-semibold text-brand-dark mb-6 text-center">Analyzing Database</h3>
-                <div className="space-y-4 w-full max-w-md">
-                  {[
-                    { text: "Scanning copyright databases...", delay: 0, duration: 2.5 },
-                    { text: "Cross-referencing work metadata...", delay: 2.5, duration: 2.5 },
-                    { text: "Analyzing publication records...", delay: 5.0, duration: 2.5 },
-                    { text: "Calculating confidence scores...", delay: 7.5, duration: 2.5 },
-                    { text: "Preparing results...", delay: 10.0, duration: 3.0 }
-                  ].map((step, index) => (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 0.3 }}
-                      animate={{ 
-                        opacity: [0.3, 1, 1],
-                        scale: [1, 1.02, 1]
-                      }}
-                      transition={{
-                        duration: step.duration,
-                        delay: step.delay,
-                        ease: "easeInOut",
-                        times: [0, 0.1, 1]
-                      }}
-                      className={`text-base text-left transition-colors duration-500`}
-                      style={{
-                        color: index === 0 ? '#ec4899' : // Always start with brand color for active step
-                               '#6b7280' // Default gray for inactive
-                      }}
+              <div className="flex flex-col items-center justify-center h-full space-y-8">
+                
+                {/* Thinking Animation */}
+                <div className="flex items-center space-x-3">
+                  <motion.div
+                    animate={{ 
+                      scale: [1, 1.3, 1]
+                    }}
+                    transition={{ 
+                      duration: 2, 
+                      repeat: Infinity, 
+                      ease: "easeInOut"
+                    }}
+                    className="text-4xl"
+                  >
+                    🧠
+                  </motion.div>
+                  
+                  <div className="text-center">
+                    <h3 className="text-xl font-semibold text-brand-dark mb-1">
+                      Analyzing Copyright Status
+                    </h3>
+                    <motion.div 
+                      className="text-gray-600 flex items-center justify-center"
+                      initial={{ opacity: 0.6 }}
                     >
+                      <span>Thinking</span>
                       <motion.span
-                        animate={{
-                          color: ['#6b7280', '#ec4899', '#8b5cf6'] // gray -> pink -> purple (completed)
-                        }}
-                        transition={{
-                          duration: step.duration,
-                          delay: step.delay,
-                          ease: "easeInOut",
-                          times: [0, 0.1, 1]
+                        animate={{ opacity: [0, 1, 0] }}
+                        transition={{ 
+                          duration: 1.2, 
+                          repeat: Infinity,
+                          delay: 0
                         }}
                       >
-                        • {step.text}
+                        .
                       </motion.span>
+                      <motion.span
+                        animate={{ opacity: [0, 1, 0] }}
+                        transition={{ 
+                          duration: 1.2, 
+                          repeat: Infinity,
+                          delay: 0.4
+                        }}
+                      >
+                        .
+                      </motion.span>
+                      <motion.span
+                        animate={{ opacity: [0, 1, 0] }}
+                        transition={{ 
+                          duration: 1.2, 
+                          repeat: Infinity,
+                          delay: 0.8
+                        }}
+                      >
+                        .
+                      </motion.span>
+                    </motion.div>
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="w-full max-w-md">
+                  <div className="relative h-3 bg-gray-200 rounded-full overflow-hidden">
+                    <motion.div
+                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-brand-pink via-brand-purple to-blue-500 rounded-full"
+                      initial={{ width: "0%" }}
+                      animate={{ width: "100%" }}
+                      transition={{
+                        duration: 12,
+                        ease: "easeInOut"
+                      }}
+                    />
+                    
+                    {/* Shimmer effect */}
+                    <motion.div
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                      animate={{
+                        x: ["-100%", "200%"]
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                      style={{ width: "50%" }}
+                    />
+                  </div>
+                  
+                  {/* Changing Step Text */}
+                  <motion.div 
+                    className="text-center mt-2 text-sm text-gray-500 h-5"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5 }}
+                  >
+                    {[
+                      "Searching comprehensive database...",
+                      "Analyzing copyright metadata...",
+                      "Cross-referencing sources...",
+                      "Calculating confidence scores...",
+                      "Preparing results..."
+                    ].map((step, index) => (
+                      <motion.span
+                        key={index}
+                        className="absolute left-1/2 transform -translate-x-1/2"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ 
+                          opacity: [0, 1, 1, 0],
+                          y: [10, 0, 0, -10]
+                        }}
+                        transition={{
+                          duration: 2.4,
+                          delay: index * 2.4,
+                          repeat: Infinity,
+                          repeatDelay: 9.6, // 4 other steps * 2.4s
+                          ease: "easeInOut",
+                          times: [0, 0.1, 0.8, 1]
+                        }}
+                      >
+                        {step}
+                      </motion.span>
+                    ))}
+                  </motion.div>
+                </div>
+
+                {/* Floating Elements */}
+                <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl">
+                  {[...Array(3)].map((_, index) => (
+                    <motion.div
+                      key={index}
+                      className="absolute text-2xl opacity-10"
+                      initial={{ 
+                        x: Math.random() * 400,
+                        y: Math.random() * 200,
+                        scale: 0
+                      }}
+                      animate={{
+                        y: [
+                          Math.random() * 200,
+                          Math.random() * 200 + 50,
+                          Math.random() * 200
+                        ],
+                        x: [
+                          Math.random() * 400,
+                          Math.random() * 400 + 30,
+                          Math.random() * 400
+                        ],
+                        scale: [0, 1, 0],
+                        rotate: [0, 180, 360]
+                      }}
+                      transition={{
+                        duration: 4 + index,
+                        repeat: Infinity,
+                        delay: index * 1.5,
+                        ease: "easeInOut"
+                      }}
+                    >
+                      {['©', '📚', '🔍'][index]}
                     </motion.div>
                   ))}
                 </div>
+
               </div>
             </div>
           </motion.div>
