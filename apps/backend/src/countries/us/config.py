@@ -24,21 +24,14 @@ API_CLIENTS_CONFIG = {
         "name": "Library of Congress",
         "base_url": "https://www.loc.gov",
         "rate_limit_delay": 1.0,
-        "confidence_weight": 0.4,
+        "confidence_weight": 0.6,
         "primary_use": "literary_works"
-    },
-    "hathitrust": {
-        "name": "HathiTrust Digital Library",
-        "base_url": "https://catalog.hathitrust.org/api",
-        "rate_limit_delay": 1.0,
-        "confidence_weight": 0.3,
-        "primary_use": "rights_information"
     },
     "musicbrainz": {
         "name": "MusicBrainz",
         "base_url": "https://musicbrainz.org/ws/2",
         "rate_limit_delay": 1.1,  # MusicBrainz requires 1 req/sec minimum
-        "confidence_weight": 0.3,
+        "confidence_weight": 0.4,
         "primary_use": "musical_works"
     }
 }
@@ -46,9 +39,8 @@ API_CLIENTS_CONFIG = {
 # Metadata normalization settings
 NORMALIZATION_CONFIG = {
     "confidence_weights": {
-        "loc": 0.4,
-        "hathitrust": 0.3,
-        "musicbrainz": 0.3
+        "loc": 0.6,
+        "musicbrainz": 0.4
     },
     "author_name_cleanup_patterns": [
         r'\s*\([^)]*\)',  # Remove dates in parentheses
@@ -75,7 +67,7 @@ ANALYSIS_CONFIG = {
 # Work type mappings
 WORK_TYPE_CONFIG = {
     "literary": {
-        "primary_apis": ["library_of_congress", "hathitrust"],
+        "primary_apis": ["library_of_congress"],
         "secondary_apis": [],
         "file_formats": ["book", "text", "manuscript"]
     },
