@@ -174,7 +174,6 @@ class MetadataNormalizer:
     @staticmethod
     def merge_api_responses(
         loc_response: Optional[APIResponse] = None,
-        hathi_response: Optional[APIResponse] = None,
         musicbrainz_response: Optional[APIResponse] = None,
         musicbrainz_artist_response: Optional[APIResponse] = None,
         search_title: str = "",
@@ -314,33 +313,6 @@ class MetadataNormalizer:
                 # No valid match found by LOC client
                 merged['confidence_sources']['loc'] = 0.0
         
-        # Process HathiTrust data
-        if hathi_response and hathi_response.success and hathi_response.data:
-            hathi_data = hathi_response.data
-            best_volume = hathi_data.get('best_volume')
-            
-            if best_volume:
-                # Title (if not already set or better match)
-                if best_volume.get('title') and (not merged['title'] or 
-                    hathi_response.confidence > merged['confidence_sources'].get('loc', 0)):
-                    merged['title'] = best_volume['title']
-                
-                # Publication year
-                pub_date = best_volume.get('publication_date', '')
-                pub_year = MetadataNormalizer.extract_publication_year(pub_date)
-                if pub_year and not merged['publication_year']:
-                    merged['publication_year'] = pub_year
-                
-                # Source link
-                if best_volume.get('url'):
-                    merged['source_links']['hathitrust'] = best_volume['url']
-                
-                # Rights information
-                rights_summary = hathi_data.get('rights_summary', {})
-                if rights_summary:
-                    merged['hathi_rights'] = rights_summary
-                
-                merged['confidence_sources']['hathitrust'] = hathi_response.confidence
         
         # Process MusicBrainz work data
         if musicbrainz_response and musicbrainz_response.success and musicbrainz_response.data:
@@ -425,7 +397,7 @@ class MetadataNormalizer:
         confidence_sources = merged_metadata.get('confidence_sources', {})
         if confidence_sources:
             # Average confidence weighted by source reliability
-            weights = {'loc': 0.4, 'hathitrust': 0.3, 'musicbrainz': 0.3}
+            weights = {'loc': 0.6, 'musicbrainz': 0.4}
             total_weight = 0
             weighted_confidence = 0
             
