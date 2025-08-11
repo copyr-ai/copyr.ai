@@ -7,7 +7,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import SearchBar from './SearchBar';
 import SearchFilters from './SearchFilters';
-import SearchResults from './SearchResults';
+import SearchPagination from './SearchPagination';
 import WorkCard from './WorkCard';
 import useSearchWithAPI from '../../hooks/useSearchWithAPI';
 import mockData from '../../data/mockWorks.json';
@@ -160,32 +160,77 @@ export default function SearchPage() {
   // State for autocomplete suggestions
   const [suggestions, setSuggestions] = useState({ sections: [] });
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const suggestionCacheRef = useRef(new Map());
 
-  // Debounced autocomplete suggestions
+  // Smart autocomplete that only calls API for meaningful input changes
   useEffect(() => {
-    if (!searchQuery || searchQuery.length < 2) {
+    if (!searchQuery || searchQuery.length < 3) {
       setSuggestions({ sections: [] });
+      setIsLoadingSuggestions(false);
       return;
+    }
+
+    // Only trigger API calls for meaningful search patterns
+    const trimmedQuery = searchQuery.toLowerCase().trim();
+    
+    // Skip API call if query is too short or just single characters
+    if (trimmedQuery.length < 3) {
+      return;
+    }
+
+    // Check if this is a meaningful word pattern (not just random typing)
+    const words = trimmedQuery.split(/\s+/).filter(word => word.length > 0);
+    const hasCompleteWord = words.some(word => word.length >= 3);
+    
+    if (!hasCompleteWord) {
+      return;
+    }
+
+    // Check cache first
+    const cacheKey = trimmedQuery;
+    if (suggestionCacheRef.current.has(cacheKey)) {
+      setSuggestions(suggestionCacheRef.current.get(cacheKey));
+      setIsLoadingSuggestions(false);
+      return;
+    }
+
+    // Also check for similar cached queries (partial matches)
+    for (let [cachedKey, cachedValue] of suggestionCacheRef.current) {
+      if (cachedKey.startsWith(trimmedQuery) || trimmedQuery.startsWith(cachedKey)) {
+        setSuggestions(cachedValue);
+        setIsLoadingSuggestions(false);
+        return;
+      }
     }
 
     setIsLoadingSuggestions(true);
     
-    // Debounce API calls - wait 250ms (1/4 second) after user stops typing
+    // Increased debounce to 500ms to reduce API calls significantly
     const timeoutId = setTimeout(async () => {
       try {
-        const suggestionData = await apiClient.getAutocompleteSuggestions(searchQuery, 15);
-        setSuggestions(suggestionData);
+        const suggestionData = await apiClient.getAutocompleteSuggestions(trimmedQuery, 10);
+        
+        // Ensure proper format
+        const formattedSuggestions = suggestionData?.sections ? suggestionData : { sections: [] };
+        
+        // Cache the result (limit cache size to prevent memory issues)
+        if (suggestionCacheRef.current.size > 30) {
+          const firstKey = suggestionCacheRef.current.keys().next().value;
+          suggestionCacheRef.current.delete(firstKey);
+        }
+        suggestionCacheRef.current.set(cacheKey, formattedSuggestions);
+        
+        setSuggestions(formattedSuggestions);
       } catch (error) {
         console.error('Failed to fetch autocomplete suggestions:', error);
         setSuggestions({ sections: [] });
       } finally {
         setIsLoadingSuggestions(false);
       }
-    }, 250);
+    }, 500);
 
     return () => {
       clearTimeout(timeoutId);
-      setIsLoadingSuggestions(false);
     };
   }, [searchQuery]);
 
@@ -325,6 +370,7 @@ export default function SearchPage() {
             onSearch={performSearch}
             isLoading={isLoading}
             suggestions={suggestions}
+            isLoadingSuggestions={isLoadingSuggestions}
             onClearAll={clearAll}
           />
             
@@ -402,7 +448,7 @@ export default function SearchPage() {
               </div>
             </div>
           )}
-          <SearchResults 
+          <SearchPagination 
             searchResults={searchResults}
             isLoading={isLoading}
             hasSearched={hasSearched}

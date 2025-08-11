@@ -206,12 +206,12 @@ export default function useSearchWithAPI() {
         if (category === 'Literature') work_type = 'literary';
         else if (category === 'Music') work_type = 'musical';
         
-        // Use new search endpoint
+        // Use new search endpoint with higher limit for pagination
         const searchResult = await apiClient.searchWorks({
           title: title || null,
           author: author || null,
           work_type,
-          limit: 5,
+          limit: 50, // Increased limit to support pagination
           country: country !== 'All' ? country : 'US',
           user_id: user?.id || null
         });
