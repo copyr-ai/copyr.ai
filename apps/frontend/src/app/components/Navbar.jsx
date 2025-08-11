@@ -161,8 +161,8 @@ export default function Navbar({ sidebarCollapsed = null, isMobileSidebarOpen = 
 
         {/* Navigation Links */}
         <div className="hidden md:flex items-center space-x-8 mx-12">
-          <a href="#features" className="text-gray-600 hover:text-gray-900 hover:font-semibold font-medium transition-all duration-200">Features</a>
-          <a href="#about" className="text-gray-600 hover:text-gray-900 hover:font-semibold font-medium transition-all duration-200">About</a>
+          <a href="/#features" className="text-gray-600 hover:text-gray-900 hover:font-semibold font-medium transition-all duration-200">Features</a>
+          <a href="/#about" className="text-gray-600 hover:text-gray-900 hover:font-semibold font-medium transition-all duration-200">About</a>
           <a 
             href="https://linkedin.com/company/copyr-ai" 
             target="_blank" 

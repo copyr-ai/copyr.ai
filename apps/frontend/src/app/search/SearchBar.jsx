@@ -11,13 +11,16 @@ export default function SearchBar({
   setSearchQuery, 
   onSearch, 
   isLoading,
-  suggestions = [],
+  suggestions = { sections: [] },
+  isLoadingSuggestions = false,
   onClearAll
 }) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [localQuery, setLocalQuery] = useState(searchQuery);
   const inputRef = useRef(null);
   const suggestionsRef = useRef(null);
+  const debounceRef = useRef(null);
 
   // Filter suggestions based on current query and organize by sections
   const getFilteredSuggestions = () => {
@@ -120,12 +123,27 @@ export default function SearchBar({
     }
   };
 
-  // Handle input change
+  // Sync local query with prop
+  useEffect(() => {
+    setLocalQuery(searchQuery);
+  }, [searchQuery]);
+
+  // Handle input change with improved debouncing
   const handleInputChange = (e) => {
     const value = e.target.value;
-    setSearchQuery(value);
+    setLocalQuery(value);
     setShowSuggestions(value.length > 0);
     setSelectedIndex(-1);
+    
+    // Clear previous debounce
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    
+    // Debounce the actual search query update for better performance
+    debounceRef.current = setTimeout(() => {
+      setSearchQuery(value);
+    }, 100);
   };
 
   // Handle suggestion click
@@ -163,6 +181,15 @@ export default function SearchBar({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -178,7 +205,7 @@ export default function SearchBar({
           <Input
             ref={inputRef}
             placeholder="Search for books, music, films, artwork..."
-            value={searchQuery}
+            value={localQuery}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             onFocus={handleFocus}
@@ -188,9 +215,14 @@ export default function SearchBar({
           />
           
           {/* Clear All Button */}
-          {searchQuery && (
+          {localQuery && (
             <button
-              onClick={onClearAll}
+              onClick={() => {
+                setLocalQuery('');
+                setSearchQuery('');
+                onClearAll();
+                setShowSuggestions(false);
+              }}
               className={`absolute top-1/2 transform -translate-y-1/2 p-2 text-gray-400 hover:text-red-500 transition-all duration-200 rounded-full hover:bg-red-50 ${
                 isLoading ? 'right-[150px]' : 'right-[120px]'
               }`}
@@ -219,14 +251,21 @@ export default function SearchBar({
         </div>
 
         {/* Autocomplete Suggestions */}
-        {showSuggestions && filteredSuggestions.totalCount > 0 && (
+        {showSuggestions && (filteredSuggestions.totalCount > 0 || isLoadingSuggestions) && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.15 }}
             className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden max-h-96 overflow-y-auto"
           >
+            {/* Loading state */}
+            {isLoadingSuggestions && filteredSuggestions.totalCount === 0 && (
+              <div className="px-6 py-4 flex items-center justify-center text-gray-500">
+                <div className="w-4 h-4 border-2 border-gray-300 border-t-brand-pink rounded-full animate-spin mr-3"></div>
+                <span className="text-sm">Finding suggestions...</span>
+              </div>
+            )}
             {filteredSuggestions.sections?.map((section, sectionIndex) => (
               <div key={section.title}>
                 {/* Section Header */}

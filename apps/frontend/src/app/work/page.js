@@ -307,6 +307,27 @@ function WorkDetailContent() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
+          {/* Mobile Action Buttons - Show on small screens only */}
+          <div className="flex flex-col sm:flex-row gap-2 mb-6 lg:hidden">
+            <div className="gradient-border-simple w-full sm:w-auto">
+              <button
+                onClick={() => router.back()}
+                className="gradient-border-simple-content text-brand-dark hover:text-brand-pink transition-colors duration-300 font-medium text-sm w-full"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Search
+              </button>
+            </div>
+            <Button 
+              size="sm" 
+              onClick={copyToClipboard}
+              className="bg-gradient-to-r from-brand-pink to-brand-purple hover:from-brand-pink/90 hover:to-brand-purple/90 text-white border-0 w-full sm:w-auto"
+            >
+              <Copy className="h-4 w-4 mr-2" />
+              {copySuccess ? 'Copied!' : 'Copy Link'}
+            </Button>
+          </div>
+
           {/* Header */}
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between mb-8 gap-4">
             <div className="flex-1">
@@ -343,8 +364,8 @@ function WorkDetailContent() {
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-2 lg:mt-0">
+            {/* Desktop Action Buttons - Show on large screens only */}
+            <div className="hidden lg:flex flex-col sm:flex-row gap-2 lg:mt-0">
               <div className="gradient-border-simple w-full sm:w-auto">
                 <button
                   onClick={() => router.back()}
