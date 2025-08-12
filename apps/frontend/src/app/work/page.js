@@ -308,23 +308,23 @@ function WorkDetailContent() {
           transition={{ duration: 0.6 }}
         >
           {/* Mobile Action Buttons - Show on small screens only */}
-          <div className="flex flex-col sm:flex-row gap-2 mb-6 lg:hidden">
-            <div className="gradient-border-simple w-full sm:w-auto">
+          <div className="flex items-center gap-3 mb-8 lg:hidden">
+            <div className="gradient-border-simple flex-shrink-0">
               <button
                 onClick={() => router.back()}
-                className="gradient-border-simple-content text-brand-dark hover:text-brand-pink transition-colors duration-300 font-medium text-sm w-full"
+                className="gradient-border-simple-content text-brand-dark hover:text-brand-pink transition-colors duration-300 font-medium text-sm px-4 py-2.5 flex items-center"
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Search
+                Back
               </button>
             </div>
             <Button 
               size="sm" 
               onClick={copyToClipboard}
-              className="bg-gradient-to-r from-brand-pink to-brand-purple hover:from-brand-pink/90 hover:to-brand-purple/90 text-white border-0 w-full sm:w-auto"
+              className="bg-gradient-to-r from-brand-pink to-brand-purple hover:from-brand-pink/90 hover:to-brand-purple/90 text-white border-0 px-6 py-2.5 flex items-center shadow-lg hover:shadow-xl transition-all duration-300 flex-1"
             >
               <Copy className="h-4 w-4 mr-2" />
-              {copySuccess ? 'Copied!' : 'Copy Link'}
+              {copySuccess ? 'Copied!' : 'Copy'}
             </Button>
           </div>
 
@@ -365,11 +365,11 @@ function WorkDetailContent() {
             </div>
 
             {/* Desktop Action Buttons - Show on large screens only */}
-            <div className="hidden lg:flex flex-col sm:flex-row gap-2 lg:mt-0">
-              <div className="gradient-border-simple w-full sm:w-auto">
+            <div className="hidden lg:flex gap-3 lg:mt-0">
+              <div className="gradient-border-simple">
                 <button
                   onClick={() => router.back()}
-                  className="gradient-border-simple-content text-brand-dark hover:text-brand-pink transition-colors duration-300 font-medium text-sm w-full"
+                  className="gradient-border-simple-content text-brand-dark hover:text-brand-pink transition-colors duration-300 font-medium text-sm px-5 py-2.5 flex items-center"
                 >
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to Search
@@ -378,7 +378,7 @@ function WorkDetailContent() {
               <Button 
                 size="sm" 
                 onClick={copyToClipboard}
-                className="bg-gradient-to-r from-brand-pink to-brand-purple hover:from-brand-pink/90 hover:to-brand-purple/90 text-white border-0 w-full sm:w-auto"
+                className="bg-gradient-to-r from-brand-pink to-brand-purple hover:from-brand-pink/90 hover:to-brand-purple/90 text-white border-0 px-5 py-2.5 flex items-center shadow-lg hover:shadow-xl transition-all duration-300"
               >
                 <Copy className="h-4 w-4 mr-2" />
                 {copySuccess ? 'Copied!' : 'Copy Link'}

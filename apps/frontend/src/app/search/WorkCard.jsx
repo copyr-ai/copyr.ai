@@ -9,6 +9,7 @@ import {
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { useWork } from '@/contexts/WorkContext';
+import { useSearchLimit } from '@/contexts/SearchLimitContext';
 
 // Utility functions
 const getStatusIcon = (status) => {
@@ -54,8 +55,14 @@ const getStatusColor = (status) => {
 export default function WorkCard({ work, variant = 'full', index = 0 }) {
   const router = useRouter();
   const { storeWork } = useWork();
+  const { handleSearchAttemptAtLimit } = useSearchLimit();
 
   const handleWorkClick = () => {
+    // Check search limit and handle modal display
+    const canProceed = handleSearchAttemptAtLimit();
+    if (!canProceed) {
+      return; // This will show the login modal if at limit
+    }
     // Create a shareable URL that includes search parameters
     const createShareableUrl = () => {
       const searchParams = new URLSearchParams({

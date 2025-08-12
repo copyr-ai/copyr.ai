@@ -12,6 +12,8 @@ export default function Navbar({ sidebarCollapsed = null, isMobileSidebarOpen = 
   const [isHidden, setIsHidden] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const [isSearchPage, setIsSearchPage] = useState(false)
+  const [isHomePage, setIsHomePage] = useState(false)
+  const [isWorkPage, setIsWorkPage] = useState(false)
   const { user, loading } = useAuth()
   
   // Close profile dropdown when clicking outside
@@ -26,16 +28,18 @@ export default function Navbar({ sidebarCollapsed = null, isMobileSidebarOpen = 
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showProfile])
 
-  // Check if we're on search page
+  // Check if we're on search page, homepage, or work page
   useEffect(() => {
-    const checkSearchPage = () => {
+    const checkPage = () => {
       setIsSearchPage(window.location.pathname.startsWith('/search'))
+      setIsHomePage(window.location.pathname === '/')
+      setIsWorkPage(window.location.pathname.startsWith('/work'))
     }
     
-    checkSearchPage()
-    window.addEventListener('popstate', checkSearchPage)
+    checkPage()
+    window.addEventListener('popstate', checkPage)
     
-    return () => window.removeEventListener('popstate', checkSearchPage)
+    return () => window.removeEventListener('popstate', checkPage)
   }, [])
 
   useEffect(() => {
@@ -142,11 +146,11 @@ export default function Navbar({ sidebarCollapsed = null, isMobileSidebarOpen = 
         y: (isHidden || isMobileSidebarOpen) ? -20 : 0 
       }}
       transition={{ duration: 0.3 }}
-      className={`${getNavbarPosition()} z-50 bg-white/90 backdrop-blur-md rounded-full shadow-lg border border-gray-200 overflow-visible transition-all duration-300 ${
+      className={`${getNavbarPosition()} z-50 bg-white/90 backdrop-blur-md rounded-full shadow-lg border border-gray-200 overflow-visible transition-all duration-300 w-fit sm:w-auto max-w-none sm:max-w-fit ${
         isMobileSidebarOpen ? 'md:opacity-100 md:translate-y-0' : ''
       }`}
     >
-      <div className="flex items-center justify-between px-8 py-4">
+      <div className="flex items-center justify-start md:justify-between px-3 sm:px-6 md:px-8 py-3 sm:py-4">
         {/* Logo */}
         <div className="flex items-center cursor-pointer hover:opacity-80 transition-opacity" onClick={goToHomepage}>
           <Image
@@ -154,31 +158,32 @@ export default function Navbar({ sidebarCollapsed = null, isMobileSidebarOpen = 
             alt="copyr.ai"
             width={120}
             height={36}
-            className="h-10 w-auto sm:h-12 md:h-10 lg:h-8"
+            className="h-10 w-auto min-w-[100px] sm:h-12 md:h-10 lg:h-8"
             priority
           />
         </div>
 
-        {/* Navigation Links */}
-        <div className="hidden md:flex items-center space-x-8 mx-12">
-          <a href="/#features" className="text-gray-600 hover:text-gray-900 hover:font-semibold font-medium transition-all duration-200">Features</a>
-          <a href="/#about" className="text-gray-600 hover:text-gray-900 hover:font-semibold font-medium transition-all duration-200">About</a>
+        {/* Navigation Links - Hidden on mobile homepage, visible otherwise */}
+        <div className={`items-center space-x-2 sm:space-x-4 md:space-x-8 ml-6 sm:mx-4 md:mx-12 ${isHomePage ? 'hidden sm:flex' : 'flex'}`}>
+          <a href="/#features" className="text-gray-600 hover:text-gray-900 hover:font-semibold font-semibold transition-all duration-200 text-sm">Features</a>
+          <a href="/#about" className="text-gray-600 hover:text-gray-900 hover:font-semibold font-semibold transition-all duration-200 text-sm">About</a>
           <a 
             href="https://linkedin.com/company/copyr-ai" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="text-gray-600 hover:text-gray-900 hover:font-semibold font-medium transition-all duration-200"
+            className="hidden sm:inline text-gray-600 hover:text-gray-900 hover:font-semibold font-semibold transition-all duration-200 text-sm"
           >
             Connect
           </a>
           {!isSearchPage && (
             <Button
               onClick={goToSearch}
-              className="px-4 py-2 bg-gradient-to-r from-brand-pink to-brand-purple hover:from-brand-pink/90 hover:to-brand-purple/90 text-white font-semibold text-xs tracking-wide rounded-full shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 h-auto group"
+              className={`px-3 py-1.5 sm:px-4 sm:py-2 bg-gradient-to-r from-brand-pink to-brand-purple hover:from-brand-pink/90 hover:to-brand-purple/90 text-white font-semibold text-xs tracking-wide rounded-full shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 h-auto group ${isWorkPage ? 'hidden sm:inline-flex' : ''}`}
             >
-              <span>Try It Now</span>
+              <span className="hidden sm:inline">Try It Now</span>
+              <span className="sm:hidden">Try</span>
               <svg 
-                className="w-3 h-3 ml-1.5 animate-arrow transition-transform duration-300" 
+                className="w-3 h-3 ml-1 sm:ml-1.5 animate-arrow transition-transform duration-300" 
                 fill="none" 
                 stroke="currentColor" 
                 viewBox="0 0 24 24"
@@ -189,10 +194,10 @@ export default function Navbar({ sidebarCollapsed = null, isMobileSidebarOpen = 
           )}
         </div>
 
-        {/* Authentication Section */}
-        <div className="hidden md:flex items-center space-x-4">
+        {/* Authentication Section - Only visible on desktop */}
+        <div className="hidden md:flex items-center space-x-1 sm:space-x-2 md:space-x-4">
           {loading ? (
-            <div className="text-sm text-gray-600">Loading...</div>
+            <div className="text-xs sm:text-sm text-gray-600">Loading...</div>
           ) : user ? (
             <div className="relative profile-dropdown">
               <button
@@ -203,10 +208,10 @@ export default function Navbar({ sidebarCollapsed = null, isMobileSidebarOpen = 
                   <img
                     src={user.user_metadata.avatar_url}
                     alt="Profile"
-                    className="w-8 h-8 rounded-full object-cover"
+                    className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="w-8 h-8 bg-gradient-to-br from-brand-pink to-brand-purple rounded-full flex items-center justify-center">
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-brand-pink to-brand-purple rounded-full flex items-center justify-center">
                     <span className="text-xs font-semibold text-white">
                       {user.email?.charAt(0).toUpperCase()}
                     </span>
@@ -215,13 +220,13 @@ export default function Navbar({ sidebarCollapsed = null, isMobileSidebarOpen = 
               </button>
               
               {showProfile && (
-                <div className="absolute right-0 top-12 w-72 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden">
+                <div className="absolute right-0 top-8 sm:top-12 w-64 sm:w-72 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden">
                   <UserProfile />
                 </div>
               )}
             </div>
           ) : (
-            <LoginButton className="text-xs px-4 py-2" />
+            <LoginButton className="text-xs px-3 py-1.5 sm:px-4 sm:py-2" />
           )}
         </div>
 

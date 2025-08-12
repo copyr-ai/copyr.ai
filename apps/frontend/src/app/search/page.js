@@ -14,6 +14,8 @@ import mockData from '../../data/mockWorks.json';
 import { apiClient } from '../../lib/api';
 import SearchHistorySidebar from '../components/SearchHistorySidebar';
 import { useWork } from '@/contexts/WorkContext';
+import { useSearchLimit } from '@/contexts/SearchLimitContext';
+import LoginModal from '../components/LoginModal';
 
 // Simplified cursor hook for search page performance
 const useCustomCursor = () => {
@@ -44,6 +46,7 @@ const useCustomCursor = () => {
 export default function SearchPage() {
   const { cursorRef, blurRef } = useCustomCursor();
   const { addToSearchHistory, storeWork, searchHistory, storeSearchResults, getCurrentSearchResults } = useWork();
+  const { canSearch, incrementSearchCount, wouldExceedLimit, handleSearchAttemptAtLimit } = useSearchLimit();
   const router = useRouter();
   const [popularWorks, setPopularWorks] = useState([]);
   const [popularWorksLoading, setPopularWorksLoading] = useState(true);
@@ -69,6 +72,32 @@ export default function SearchPage() {
     searchWithClearedFilters,
     clearSearch
   } = useSearchWithAPI();
+
+  // Wrapper for search that checks limits
+  const performSearchWithLimit = () => {
+    // Use the new function that handles both incrementing and showing modal
+    const canProceed = handleSearchAttemptAtLimit();
+    if (!canProceed) {
+      return false;
+    }
+    
+    // Proceed with actual search
+    performSearch();
+    return true;
+  };
+
+  // Wrapper for search with values that checks limits
+  const performSearchWithValuesAndLimit = (query, category, country, status, fromHistory = false) => {
+    // Use the new function that handles both incrementing and showing modal
+    const canProceed = handleSearchAttemptAtLimit();
+    if (!canProceed) {
+      return false;
+    }
+    
+    // Proceed with actual search
+    performSearchWithValues(query, category, country, status, fromHistory);
+    return true;
+  };
 
   // Store search results in work context when they change
   useEffect(() => {
@@ -281,10 +310,10 @@ export default function SearchPage() {
       return;
     }
     
-    // If no cached results, perform the search
+    // If no cached results, perform the search with limit check
     console.log('No cached results, performing search');
     const cleanQueryForSearch = historyItem.query_text?.replace(/^(title:\s*|author:\s*)+/gi, '').trim() || historyItem.query_text;
-    performSearchWithValues(
+    performSearchWithValuesAndLimit(
       cleanQueryForSearch,
       historyItem.filters?.category || 'All',
       historyItem.filters?.country || 'All', 
@@ -367,7 +396,7 @@ export default function SearchPage() {
           <SearchBar 
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
-            onSearch={performSearch}
+            onSearch={performSearchWithLimit}
             isLoading={isLoading}
             suggestions={suggestions}
             isLoadingSuggestions={isLoadingSuggestions}
@@ -455,8 +484,8 @@ export default function SearchPage() {
             searchQuery={searchQuery}
             onClearSearch={clearSearch}
             setSearchQuery={setSearchQuery}
-            performSearch={performSearch}
-            performSearchWithValues={performSearchWithValues}
+            performSearch={performSearchWithLimit}
+            performSearchWithValues={performSearchWithValuesAndLimit}
             searchWithClearedFilters={searchWithClearedFilters}
             selectedCategory={selectedCategory}
             selectedCountry={selectedCountry}
@@ -726,6 +755,9 @@ export default function SearchPage() {
 
         <Footer />
       </div>
+      
+      {/* Login Modal */}
+      <LoginModal />
     </div>
   );
 }
