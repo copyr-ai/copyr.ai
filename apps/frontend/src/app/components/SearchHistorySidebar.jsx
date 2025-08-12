@@ -207,14 +207,14 @@ export default function SearchHistorySidebar({ onSearchHistoryClick, onToggleCol
       {/* Mobile overlay */}
       {isMobileOpen && (
         <div 
-          className="md:hidden fixed inset-0 bg-gray-100 bg-opacity-60 backdrop-blur-sm z-30"
+          className="md:hidden fixed inset-0 bg-gray-100 bg-opacity-60 backdrop-blur-sm z-[55]"
           onClick={handleMobileToggle}
         />
       )}
       
-      <div className={`fixed left-0 top-0 h-screen bg-white border-r border-gray-200 flex flex-col transition-all duration-300 z-40 shadow-sm ${
+      <div className={`fixed left-0 top-0 h-screen bg-white border-r border-gray-200 flex flex-col transition-all duration-300 shadow-sm ${
         isCollapsed ? 'w-12 md:w-12' : 'w-[85%] md:w-80'
-      } ${isMobileOpen ? 'translate-x-0 z-50' : '-translate-x-full md:translate-x-0 z-40'}`}>
+      } ${isMobileOpen ? 'translate-x-0 z-[60]' : '-translate-x-full md:translate-x-0 z-40'}`}>
         {/* Header with toggle */}
         <div className="py-3 border-b border-gray-200 flex items-center justify-between">
           {!isCollapsed && (
@@ -222,12 +222,13 @@ export default function SearchHistorySidebar({ onSearchHistoryClick, onToggleCol
           )}
           <button
             onClick={handleToggle}
-            className={`p-1.5 hover:bg-gray-100 rounded-md transition-colors ${isCollapsed ? 'mx-auto' : ''}`}
+            className={`p-2 hover:bg-gray-100 rounded-md transition-colors relative z-10 ${isCollapsed ? 'mx-auto' : 'mr-2'}`}
+            style={{ minHeight: '32px', minWidth: '32px' }}
           >
             {isCollapsed ? (
               <SidebarIcon className="w-5 h-5" isCollapsed={true} />
             ) : (
-              <X className="h-4 w-4 mx-1 text-gray-500" />
+              <X className="h-4 w-4 text-gray-500" />
             )}
           </button>
         </div>
