@@ -1,3 +1,4 @@
-from .config import supabase
+# Avoid importing config at package level to prevent dependency issues
+# from .config import supabase
 
-__all__ = ['supabase']
+__all__ = []
