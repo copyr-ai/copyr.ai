@@ -59,8 +59,22 @@ def setup_logging(
     if log_level is None:
         log_level = os.getenv("LOG_LEVEL", "INFO").upper()
     
-    # Validate log level
-    numeric_level = getattr(logging, log_level, logging.INFO)
+    # Ensure log_level is a string
+    if not isinstance(log_level, str):
+        log_level = "INFO"
+    
+    # Validate log level - map to numeric values
+    level_mapping = {
+        "DEBUG": logging.DEBUG,
+        "INFO": logging.INFO,
+        "WARNING": logging.WARNING,
+        "WARN": logging.WARNING,
+        "ERROR": logging.ERROR,
+        "CRITICAL": logging.CRITICAL,
+        "FATAL": logging.CRITICAL
+    }
+    
+    numeric_level = level_mapping.get(log_level.upper(), logging.INFO)
     
     # Choose formatter
     if log_format.lower() == "json":
