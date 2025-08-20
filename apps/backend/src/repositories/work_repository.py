@@ -66,20 +66,33 @@ class WorkRepository:
     ) -> List[WorkCache]:
         """
         Search works by content with fuzzy matching
+        For autocomplete, search title OR author (not AND)
         """
         try:
             from ..database.config import supabase
-            query = supabase.table(self.table_name).select("*")
             
-            # Apply filters
-            if title:
-                # Sanitize input for security
-                safe_title = SQLInjectionProtector.sanitize_for_sql(title.strip())
-                query = query.ilike("title", f"%{safe_title}%")
-            
-            if author:
-                safe_author = SQLInjectionProtector.sanitize_for_sql(author.strip())
-                query = query.ilike("author", f"%{safe_author}%")
+            # If both title and author are provided (autocomplete case), 
+            # we want to search for works that match EITHER title OR author
+            if title and author and title.strip() == author.strip():
+                # This is an autocomplete search - search for query in either title or author
+                search_term = title.strip()
+                safe_term = SQLInjectionProtector.sanitize_for_sql(search_term)
+                
+                # Use OR condition to search both title and author
+                query = supabase.table(self.table_name).select("*").or_(
+                    f"title.ilike.%{safe_term}%,author.ilike.%{safe_term}%"
+                )
+            else:
+                # Regular search - apply filters as AND conditions
+                query = supabase.table(self.table_name).select("*")
+                
+                if title:
+                    safe_title = SQLInjectionProtector.sanitize_for_sql(title.strip())
+                    query = query.ilike("title", f"%{safe_title}%")
+                
+                if author:
+                    safe_author = SQLInjectionProtector.sanitize_for_sql(author.strip())
+                    query = query.ilike("author", f"%{safe_author}%")
             
             if work_type and work_type in ['literary', 'musical']:
                 query = query.eq("work_type", work_type)
@@ -239,6 +252,8 @@ class WorkRepository:
         Get repository statistics
         """
         try:
+            from ..database.config import supabase
+            
             # Total works
             total_response = supabase.table(self.table_name).select("id", count="exact").execute()
             total_works = total_response.count if total_response.count else 0
