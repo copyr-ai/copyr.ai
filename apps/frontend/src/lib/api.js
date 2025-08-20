@@ -17,11 +17,34 @@ class ApiClient {
     this.baseURL = API_BASE_URL
   }
 
+  // Get authentication headers
+  async getAuthHeaders() {
+    try {
+      const { supabaseClient } = await import('./supabase');
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      
+      if (session?.access_token) {
+        return {
+          'Authorization': `Bearer ${session.access_token}`
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to get auth headers:', error);
+    }
+    
+    return {};
+  }
+
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`
+    
+    // Get auth headers
+    const authHeaders = await this.getAuthHeaders();
+    
     const config = {
       headers: {
         'Content-Type': 'application/json',
+        ...authHeaders,
         ...options.headers,
       },
       ...options,

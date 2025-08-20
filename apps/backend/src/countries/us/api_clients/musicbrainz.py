@@ -153,6 +153,7 @@ class MusicBrainzClient(BaseMusicAPIClient):
                 'language': work.get('language'),
                 'composers': [],
                 'tags': [],
+                'earliest_release_year': None,
                 'url': f"https://musicbrainz.org/work/{work.get('id', '')}"
             }
             
@@ -173,10 +174,56 @@ class MusicBrainzClient(BaseMusicAPIClient):
             if 'tags' in work:
                 work_info['tags'] = [tag.get('name', '') for tag in work['tags']]
             
+            # Try to get earliest release date from the work
+            work_info['earliest_release_year'] = self._get_earliest_release_year(work.get('id'))
+            
             return work_info
             
         except Exception as e:
             print(f"Error parsing MusicBrainz work: {e}")
+            return None
+    
+    def _get_earliest_release_year(self, work_id: str) -> Optional[int]:
+        """Get the earliest release year for a MusicBrainz work"""
+        if not work_id:
+            return None
+            
+        try:
+            self._rate_limit()
+            
+            # Search for recordings of this work
+            url = f"{self.BASE_URL}/recording"
+            params = {
+                'query': f'wid:{work_id}',
+                'fmt': 'json',
+                'limit': 50,
+                'inc': 'releases'  # Include release information
+            }
+            
+            response = self.session.get(url, params=params, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            
+            earliest_year = None
+            
+            if 'recordings' in data:
+                for recording in data['recordings']:
+                    if 'releases' in recording:
+                        for release in recording['releases']:
+                            release_date = release.get('date')
+                            if release_date:
+                                # Extract year from date (YYYY-MM-DD format)
+                                try:
+                                    year = int(release_date.split('-')[0])
+                                    if earliest_year is None or year < earliest_year:
+                                        earliest_year = year
+                                except (ValueError, IndexError):
+                                    continue
+            
+            return earliest_year
+            
+        except Exception as e:
+            print(f"Error getting earliest release year for work {work_id}: {e}")
             return None
     
     def _parse_artist_results(self, data: Dict[str, Any], artist_name: str) -> Dict[str, Any]:

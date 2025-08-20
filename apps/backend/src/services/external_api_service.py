@@ -176,10 +176,13 @@ class ExternalAPIService:
                     composer_names = [c.get('name', '') for c in work.get('composers', [])]
                     composer_str = ', '.join(composer_names) if composer_names else 'Unknown'
                     
+                    # Use earliest release year if available
+                    publication_year = work.get('earliest_release_year')
+                    
                     formatted_work = {
                         'title': work.get('title', ''),
                         'author': composer_str,
-                        'publication_year': None,
+                        'publication_year': publication_year,
                         'url': work.get('url', ''),
                         'format': 'music',
                         'source': 'musicbrainz',
