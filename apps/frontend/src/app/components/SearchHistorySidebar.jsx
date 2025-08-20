@@ -83,30 +83,45 @@ export default function SearchHistorySidebar({ onSearchHistoryClick, onToggleCol
 
   // Load search history when user is authenticated
   useEffect(() => {
-    if (user) {
+    if (user?.id) { // Only load when user has an ID
       loadSearchHistory()
     } else {
       setSearchHistory([])
       setGroupedHistory({})
+      setLoading(false) // Ensure loading is false when no user
     }
-  }, [user])
+  }, [user?.id]) // Only depend on user ID, not the whole user object
 
   const loadSearchHistory = async () => {
     if (!user) return
     
     setLoading(true)
+    
+    // Add timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      console.warn('Search history loading timeout')
+      setLoading(false)
+    }, 10000) // 10 second timeout
+    
     try {
       const { data, error } = await getSearchHistory(50)
       
+      clearTimeout(timeoutId) // Clear timeout if request completes
+      
       if (error) {
         console.error('Error loading search history:', error)
+        setSearchHistory([]) // Set empty array on error
+        setGroupedHistory({})
       } else {
         const history = data || []
         setSearchHistory(history)
         groupHistoryByDate(history)
       }
     } catch (error) {
+      clearTimeout(timeoutId)
       console.error('Failed to load search history:', error)
+      setSearchHistory([]) // Set empty array on error
+      setGroupedHistory({})
     } finally {
       setLoading(false)
     }

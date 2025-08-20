@@ -236,8 +236,17 @@ export default function SearchPage() {
     
     // Increased debounce to 500ms to reduce API calls significantly
     const timeoutId = setTimeout(async () => {
+      // Add timeout for API call to prevent infinite loading
+      const apiTimeoutId = setTimeout(() => {
+        console.warn('Autocomplete API timeout for query:', trimmedQuery);
+        setIsLoadingSuggestions(false);
+        setSuggestions({ sections: [] });
+      }, 8000); // 8 second timeout
+      
       try {
         const suggestionData = await apiClient.getAutocompleteSuggestions(trimmedQuery, 10);
+        
+        clearTimeout(apiTimeoutId); // Clear timeout if request completes
         
         // Ensure proper format
         const formattedSuggestions = suggestionData?.sections ? suggestionData : { sections: [] };
@@ -251,6 +260,7 @@ export default function SearchPage() {
         
         setSuggestions(formattedSuggestions);
       } catch (error) {
+        clearTimeout(apiTimeoutId);
         console.error('Failed to fetch autocomplete suggestions:', error);
         setSuggestions({ sections: [] });
       } finally {
@@ -260,6 +270,8 @@ export default function SearchPage() {
 
     return () => {
       clearTimeout(timeoutId);
+      // Also reset loading state when component unmounts or query changes
+      setIsLoadingSuggestions(false);
     };
   }, [searchQuery]);
 

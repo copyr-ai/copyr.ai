@@ -21,10 +21,13 @@ export const AuthProvider = ({ children }) => {
 
   // Sign in with Google
   const signInWithGoogle = async () => {
+    // Use environment variables for redirect URL
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+    
     const { data, error } = await supabaseClient.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`
+        redirectTo: `${siteUrl}/auth/callback`
       }
     })
     
@@ -45,63 +48,26 @@ export const AuthProvider = ({ children }) => {
     return { error }
   }
 
-  // Create user profile if it doesn't exist
-  const createUserProfile = async (user) => {
-    if (!user) return null
-    
-    const { data, error } = await supabaseClient
-      .from('user_profiles')
-      .insert({
-        id: user.id,
-        email: user.email,
-        full_name: user.user_metadata?.full_name || user.user_metadata?.name,
-        avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture
-      })
-      .select()
-      .single()
-    
-    if (error) {
-      console.error('Error creating user profile:', error)
-      return null
-    }
-    
-    return data
-  }
-
-  // Get user profile
+  // Get user profile from backend API
   const getUserProfile = async (userId) => {
     if (!userId) return null
     
-    const { data, error } = await supabaseClient
-      .from('user_profiles')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle() // Use maybeSingle() instead of single() to handle 0 rows gracefully
-    
-    if (error) {
+    try {
+      const profile = await apiClient.getUserProfile(userId)
+      return profile
+    } catch (error) {
       console.error('Error fetching user profile:', error)
       return null
     }
-    
-    return data
   }
 
-  // Update user profile
+  // Update user profile (TODO: Implement backend endpoint)
   const updateProfile = async (profileData) => {
     if (!user) return { error: 'No user logged in' }
     
-    const { data, error } = await supabaseClient
-      .from('user_profiles')
-      .update(profileData)
-      .eq('id', user.id)
-      .select()
-      .single()
-    
-    if (!error && data) {
-      setProfile(data)
-    }
-    
-    return { data, error }
+    // TODO: Use backend API when endpoint is available
+    console.warn('Profile update not implemented yet - backend endpoint needed')
+    return { error: 'Profile update not implemented' }
   }
 
   // Save search to history
@@ -155,13 +121,8 @@ export const AuthProvider = ({ children }) => {
       if (mounted) {
         if (session?.user) {
           setUser(session.user)
-          let userProfile = await getUserProfile(session.user.id)
-          
-          // If profile doesn't exist, create it
-          if (!userProfile) {
-            userProfile = await createUserProfile(session.user)
-          }
-          
+          // Get profile from backend - it will be created automatically if it doesn't exist
+          const userProfile = await getUserProfile(session.user.id)
           setProfile(userProfile)
         }
         setLoading(false)
@@ -176,13 +137,8 @@ export const AuthProvider = ({ children }) => {
         if (mounted) {
           if (session?.user) {
             setUser(session.user)
-            let userProfile = await getUserProfile(session.user.id)
-            
-            // If profile doesn't exist, create it
-            if (!userProfile) {
-              userProfile = await createUserProfile(session.user)
-            }
-            
+            // Get profile from backend - it will be created automatically if it doesn't exist
+            const userProfile = await getUserProfile(session.user.id)
             setProfile(userProfile)
           } else {
             setUser(null)

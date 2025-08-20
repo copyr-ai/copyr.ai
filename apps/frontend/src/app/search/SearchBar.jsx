@@ -251,7 +251,7 @@ export default function SearchBar({
         </div>
 
         {/* Autocomplete Suggestions */}
-        {showSuggestions && (filteredSuggestions.totalCount > 0 || isLoadingSuggestions) && (
+        {showSuggestions && (filteredSuggestions.totalCount > 0 || isLoadingSuggestions || (searchQuery.length >= 3 && !isLoadingSuggestions)) && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -264,6 +264,14 @@ export default function SearchBar({
               <div className="px-6 py-4 flex items-center justify-center text-gray-500">
                 <div className="w-4 h-4 border-2 border-gray-300 border-t-brand-pink rounded-full animate-spin mr-3"></div>
                 <span className="text-sm">Finding suggestions...</span>
+              </div>
+            )}
+            
+            {/* No suggestions found state */}
+            {!isLoadingSuggestions && filteredSuggestions.totalCount === 0 && searchQuery.length >= 3 && (
+              <div className="px-6 py-4 text-center text-gray-500">
+                <span className="text-sm">No suggestions found for "{searchQuery}"</span>
+                <div className="text-xs text-gray-400 mt-1">Try searching anyway or check spelling</div>
               </div>
             )}
             {filteredSuggestions.sections?.map((section, sectionIndex) => (
