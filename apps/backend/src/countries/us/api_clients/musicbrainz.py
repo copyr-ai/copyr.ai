@@ -1,7 +1,7 @@
-import requests
+import aiohttp
 import json
 from typing import Optional, Dict, Any, List
-import time
+import asyncio
 from urllib.parse import quote
 
 from ....models.work_record import APIResponse
@@ -17,20 +17,41 @@ class MusicBrainzClient(BaseMusicAPIClient):
     
     def __init__(self, rate_limit_delay: float = 1.1):  # MusicBrainz requires 1 req/sec
         super().__init__(rate_limit_delay)
-        self.session = requests.Session()
-        self.session.headers.update({
+        self.session: Optional[aiohttp.ClientSession] = None
+        self.timeout = aiohttp.ClientTimeout(total=30, connect=10)
+        self.headers = {
             'User-Agent': 'copyr.ai/1.0 (copyright research tool; contact@copyr.ai)',
             'Accept': 'application/json'
-        })
+        }
     
-    def _rate_limit(self):
-        """Enforce rate limiting - MusicBrainz requires minimum 1 second between requests"""
+    async def _async_rate_limit(self):
+        """Async rate limiting using asyncio.sleep"""
+        import time
         elapsed = time.time() - self.last_request_time
         if elapsed < self.rate_limit_delay:
-            time.sleep(self.rate_limit_delay - elapsed)
+            await asyncio.sleep(self.rate_limit_delay - elapsed)
         self.last_request_time = time.time()
     
-    def search_works(self, title: str, composer: str) -> APIResponse:
+    async def get_session(self, external_session: Optional[aiohttp.ClientSession] = None) -> aiohttp.ClientSession:
+        """Get or create aiohttp session"""
+        # Use external session if provided (preferred)
+        if external_session and not external_session.closed:
+            return external_session
+            
+        # Otherwise use our own session
+        if self.session is None or self.session.closed:
+            self.session = aiohttp.ClientSession(
+                timeout=self.timeout,
+                headers=self.headers
+            )
+        return self.session
+    
+    async def close_session(self):
+        """Close aiohttp session"""
+        if self.session and not self.session.closed:
+            await self.session.close()
+    
+    async def search_works(self, title: str, composer: str, session: Optional[aiohttp.ClientSession] = None) -> APIResponse:
         """
         Search for musical works by title and composer
         
@@ -41,7 +62,7 @@ class MusicBrainzClient(BaseMusicAPIClient):
         Returns:
             APIResponse with search results
         """
-        self._rate_limit()
+        await self._async_rate_limit()
         
         # Construct search query for works
         query = f'work:"{title}" AND artist:"{composer}"'
@@ -55,14 +76,15 @@ class MusicBrainzClient(BaseMusicAPIClient):
         }
         
         try:
-            response = self.session.get(url, params=params, timeout=30)
-            response.raise_for_status()
-            
-            data = response.json()
-            source_url = response.url
+            client_session = await self.get_session(session)
+            async with client_session.get(url, params=params) as response:
+                response.raise_for_status()
+                
+                data = await response.json()
+                source_url = str(response.url)
             
             # Parse results
-            parsed_results = self._parse_work_results(data, title, composer)
+            parsed_results = await self._parse_work_results(data, title, composer, session)
             
             return APIResponse(
                 success=True,
@@ -71,7 +93,7 @@ class MusicBrainzClient(BaseMusicAPIClient):
                 confidence=self._calculate_confidence(parsed_results, title, composer)
             )
             
-        except requests.exceptions.RequestException as e:
+        except aiohttp.ClientError as e:
             return APIResponse(
                 success=False,
                 error=f"MusicBrainz API request failed: {str(e)}",
@@ -84,9 +106,9 @@ class MusicBrainzClient(BaseMusicAPIClient):
                 source_url=url
             )
     
-    def search_artists(self, artist_name: str) -> APIResponse:
+    async def search_artists(self, artist_name: str, session: Optional[aiohttp.ClientSession] = None) -> APIResponse:
         """Search for artist information to get birth/death dates"""
-        self._rate_limit()
+        await self._async_rate_limit()
         
         query = f'artist:"{artist_name}"'
         url = f"{self.BASE_URL}/artist"
@@ -98,11 +120,12 @@ class MusicBrainzClient(BaseMusicAPIClient):
         }
         
         try:
-            response = self.session.get(url, params=params, timeout=30)
-            response.raise_for_status()
-            
-            data = response.json()
-            parsed_results = self._parse_artist_results(data, artist_name)
+            client_session = await self.get_session(session)
+            async with client_session.get(url, params=params) as response:
+                response.raise_for_status()
+                
+                data = await response.json()
+                parsed_results = self._parse_artist_results(data, artist_name)
             
             return APIResponse(
                 success=True,
@@ -111,14 +134,14 @@ class MusicBrainzClient(BaseMusicAPIClient):
                 confidence=0.8 if parsed_results.get('best_match') else 0.2
             )
             
-        except requests.exceptions.RequestException as e:
+        except aiohttp.ClientError as e:
             return APIResponse(
                 success=False,
                 error=f"MusicBrainz artist search failed: {str(e)}",
                 source_url=url
             )
     
-    def _parse_work_results(self, data: Dict[str, Any], title: str, composer: str) -> Dict[str, Any]:
+    async def _parse_work_results(self, data: Dict[str, Any], title: str, composer: str, session: Optional[aiohttp.ClientSession] = None) -> Dict[str, Any]:
         """Parse MusicBrainz work search results"""
         results = {
             'works': [],
@@ -132,7 +155,7 @@ class MusicBrainzClient(BaseMusicAPIClient):
         results['total_results'] = len(data['works'])
         
         for work in data['works']:
-            parsed_work = self._parse_work_item(work)
+            parsed_work = await self._parse_work_item(work, session)
             if parsed_work:
                 results['works'].append(parsed_work)
         
@@ -142,7 +165,7 @@ class MusicBrainzClient(BaseMusicAPIClient):
         
         return results
     
-    def _parse_work_item(self, work: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    async def _parse_work_item(self, work: Dict[str, Any], session: Optional[aiohttp.ClientSession] = None) -> Optional[Dict[str, Any]]:
         """Parse individual MusicBrainz work item"""
         try:
             # Extract basic work info
@@ -175,7 +198,7 @@ class MusicBrainzClient(BaseMusicAPIClient):
                 work_info['tags'] = [tag.get('name', '') for tag in work['tags']]
             
             # Try to get earliest release date from the work
-            work_info['earliest_release_year'] = self._get_earliest_release_year(work.get('id'))
+            work_info['earliest_release_year'] = await self._get_earliest_release_year(work.get('id'), session)
             
             return work_info
             
@@ -183,13 +206,13 @@ class MusicBrainzClient(BaseMusicAPIClient):
             print(f"Error parsing MusicBrainz work: {e}")
             return None
     
-    def _get_earliest_release_year(self, work_id: str) -> Optional[int]:
+    async def _get_earliest_release_year(self, work_id: str, session: Optional[aiohttp.ClientSession] = None) -> Optional[int]:
         """Get the earliest release year for a MusicBrainz work"""
         if not work_id:
             return None
             
         try:
-            self._rate_limit()
+            await self._async_rate_limit()
             
             # Search for recordings of this work
             url = f"{self.BASE_URL}/recording"
@@ -200,9 +223,10 @@ class MusicBrainzClient(BaseMusicAPIClient):
                 'inc': 'releases'  # Include release information
             }
             
-            response = self.session.get(url, params=params, timeout=30)
-            response.raise_for_status()
-            data = response.json()
+            client_session = await self.get_session(session)
+            async with client_session.get(url, params=params) as response:
+                response.raise_for_status()
+                data = await response.json()
             
             earliest_year = None
             
@@ -363,9 +387,9 @@ class MusicBrainzClient(BaseMusicAPIClient):
         
         return min(confidence, 1.0)
     
-    def get_work_details(self, work_id: str) -> APIResponse:
+    async def get_work_details(self, work_id: str) -> APIResponse:
         """Get detailed information about a specific work"""
-        self._rate_limit()
+        await self._async_rate_limit()
         
         url = f"{self.BASE_URL}/work/{work_id}"
         params = {
@@ -374,10 +398,11 @@ class MusicBrainzClient(BaseMusicAPIClient):
         }
         
         try:
-            response = self.session.get(url, params=params, timeout=30)
-            response.raise_for_status()
-            
-            data = response.json()
+            client_session = await self.get_session(session)
+            async with client_session.get(url, params=params) as response:
+                response.raise_for_status()
+                
+                data = await response.json()
             
             return APIResponse(
                 success=True,
@@ -386,14 +411,14 @@ class MusicBrainzClient(BaseMusicAPIClient):
                 confidence=0.9
             )
             
-        except requests.exceptions.RequestException as e:
+        except aiohttp.ClientError as e:
             return APIResponse(
                 success=False,
                 error=f"MusicBrainz work details request failed: {str(e)}",
                 source_url=url
             )
     
-    def search_books(self, title: str, author: str) -> APIResponse:
+    async def search_books(self, title: str, author: str) -> APIResponse:
         """Search for books (not applicable for MusicBrainz, returns empty)"""
         return APIResponse(
             success=True,
@@ -401,6 +426,6 @@ class MusicBrainzClient(BaseMusicAPIClient):
             confidence=0.0
         )
     
-    def get_item_details(self, item_identifier: str) -> APIResponse:
+    async def get_item_details(self, item_identifier: str) -> APIResponse:
         """Get detailed information about a specific work"""
-        return self.get_work_details(item_identifier)
+        return await self.get_work_details(item_identifier)

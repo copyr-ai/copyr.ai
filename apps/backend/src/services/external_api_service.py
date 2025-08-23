@@ -4,7 +4,7 @@ from typing import Optional, List, Dict, Any, Tuple
 import logging
 from ..core.exceptions import ExternalServiceError
 from ..countries.us.api_clients.library_of_congress import LibraryOfCongressClient
-from ..countries.us.api_clients.hathitrust import HathiTrustClient
+# from ..countries.us.api_clients.hathitrust import HathiTrustClient  # Removed
 from ..countries.us.api_clients.musicbrainz import MusicBrainzClient
 
 logger = logging.getLogger(__name__)
@@ -18,9 +18,9 @@ class ExternalAPIService:
         self.session: Optional[aiohttp.ClientSession] = None
         self.timeout = aiohttp.ClientTimeout(total=30, connect=10)
         
-        # Initialize API clients
+        # Initialize API clients (they will use our shared session)
         self.loc_client = LibraryOfCongressClient()
-        self.hathi_client = HathiTrustClient()
+        # self.hathi_client = HathiTrustClient()  # Removed
         self.musicbrainz_client = MusicBrainzClient()
     
     async def __aenter__(self):
@@ -82,10 +82,7 @@ class ExternalAPIService:
                 if title or author:
                     tasks.append(self._search_musicbrainz(title, author, limit))
             
-            # HathiTrust search (primarily for books)
-            if work_type == "literary" or not work_type:
-                if title and author:
-                    tasks.append(self._search_hathitrust(title, author, limit))
+            # HathiTrust search removed - using only LOC and MusicBrainz
             
             # Execute all searches concurrently
             results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -117,11 +114,11 @@ class ExternalAPIService:
         """
         try:
             if author and title:
-                works = self.loc_client.search_by_title_and_author(title, author, limit=limit * 2)
+                works = await self.loc_client.search_by_title_and_author(title, author, limit=limit * 2, session=self.session)
             elif author:
-                works = self.loc_client.search_by_author(author, limit=limit * 2)
+                works = await self.loc_client.search_by_author(author, limit=limit * 2, session=self.session)
             elif title:
-                works = self.loc_client.search_by_title(title, limit=limit * 2)
+                works = await self.loc_client.search_by_title(title, limit=limit * 2, session=self.session)
             else:
                 return []
             
@@ -150,22 +147,22 @@ class ExternalAPIService:
             
             if author and title:
                 logger.info("Searching MusicBrainz with both title and author")
-                mb_response = self.musicbrainz_client.search_works(title, author)
+                mb_response = await self.musicbrainz_client.search_works(title, author, session=self.session)
             elif author:
                 logger.info("Searching MusicBrainz by composer only")
                 # First search for the artist
-                artist_response = self.musicbrainz_client.search_artists(author)
+                artist_response = await self.musicbrainz_client.search_artists(author, session=self.session)
                 if artist_response.success and artist_response.data:
                     best_artist = artist_response.data.get('best_match')
                     if best_artist:
-                        mb_response = self.musicbrainz_client.search_works("", author)
+                        mb_response = await self.musicbrainz_client.search_works("", author, session=self.session)
                     else:
                         return []
                 else:
                     return []
             elif title:
                 logger.info("Searching MusicBrainz by title only")
-                mb_response = self.musicbrainz_client.search_works(title, "")
+                mb_response = await self.musicbrainz_client.search_works(title, "", session=self.session)
             else:
                 return []
             
@@ -197,29 +194,7 @@ class ExternalAPIService:
             logger.warning(f"MusicBrainz search failed: {e}")
             raise ExternalServiceError("MusicBrainz", str(e), e)
     
-    async def _search_hathitrust(
-        self, 
-        title: str, 
-        author: str, 
-        limit: int
-    ) -> List[Dict[str, Any]]:
-        """
-        Search HathiTrust with proper error handling
-        """
-        try:
-            hathi_response = self.hathi_client.search_books(title, author)
-            works = []
-            
-            if hathi_response.success and hathi_response.data:
-                # Note: HathiTrust integration needs more work for full implementation
-                logger.info("HathiTrust search available but requires enhanced implementation")
-                # For now, return empty list as the current client needs OCLC lookup
-            
-            return works
-            
-        except Exception as e:
-            logger.warning(f"HathiTrust search failed: {e}")
-            raise ExternalServiceError("HathiTrust", str(e), e)
+    # HathiTrust search method removed
     
     def group_similar_works(self, works: List[Dict[str, Any]]) -> Dict[Tuple[str, str], List[Dict[str, Any]]]:
         """

@@ -49,7 +49,7 @@ class CopyrightAnalyzer:
         
         return analyzer_class()
     
-    def analyze_work(
+    async def analyze_work(
         self, 
         title: str, 
         author: str, 
@@ -73,10 +73,10 @@ class CopyrightAnalyzer:
         # If country override is provided, create new analyzer
         if country and country.upper() != self.country:
             temp_analyzer = CopyrightAnalyzer(country)
-            return temp_analyzer.analyze_work(title, author, work_type, verbose)
+            return await temp_analyzer.analyze_work(title, author, work_type, verbose)
         
         # Use the country-specific analyzer
-        return self.country_analyzer.analyze_work(title, author, work_type, verbose)
+        return await self.country_analyzer.analyze_work(title, author, work_type, verbose)
     
     def analyze_batch(
         self, 

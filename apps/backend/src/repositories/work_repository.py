@@ -57,6 +57,22 @@ class WorkRepository:
             logger.error(f"Error finding work by source key {source_key}: {e}")
             raise DatabaseError("find_by_source_key", str(e), e)
     
+    async def find_by_content_hash(self, content_hash: str) -> Optional[WorkCache]:
+        """
+        Find work by content hash for fast deduplication
+        """
+        try:
+            from ..database.config import supabase
+            response = supabase.table(self.table_name).select("*").eq("content_hash", content_hash).execute()
+            
+            if response.data:
+                return WorkCache(**response.data[0])
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error finding work by content hash {content_hash}: {e}")
+            raise DatabaseError("find_by_content_hash", str(e), e)
+
     async def search_by_content(
         self, 
         title: Optional[str] = None, 
@@ -65,40 +81,37 @@ class WorkRepository:
         limit: int = 10
     ) -> List[WorkCache]:
         """
-        Search works by content with fuzzy matching
-        For autocomplete, search title OR author (not AND)
+        Enhanced search using normalized fields for better performance
+        Falls back to ILIKE if full-text search fails
         """
         try:
             from ..database.config import supabase
             
-            # If both title and author are provided (autocomplete case), 
-            # we want to search for works that match EITHER title OR author
+            # If both title and author are provided and identical (autocomplete case)
             if title and author and title.strip() == author.strip():
-                # This is an autocomplete search - search for query in either title or author
-                search_term = title.strip()
-                safe_term = SQLInjectionProtector.sanitize_for_sql(search_term)
+                search_term = title.strip().lower()
                 
-                # Use OR condition to search both title and author
+                # Search in both normalized title and author fields
                 query = supabase.table(self.table_name).select("*").or_(
-                    f"title.ilike.%{safe_term}%,author.ilike.%{safe_term}%"
+                    f"title_normalized.ilike.%{search_term}%,author_normalized.ilike.%{search_term}%"
                 )
             else:
-                # Regular search - apply filters as AND conditions
+                # Regular search using normalized fields
                 query = supabase.table(self.table_name).select("*")
                 
                 if title:
-                    safe_title = SQLInjectionProtector.sanitize_for_sql(title.strip())
-                    query = query.ilike("title", f"%{safe_title}%")
+                    # Search normalized title
+                    query = query.ilike("title_normalized", f"%{title.strip().lower()}%")
                 
                 if author:
-                    safe_author = SQLInjectionProtector.sanitize_for_sql(author.strip())
-                    query = query.ilike("author", f"%{safe_author}%")
+                    # Search normalized author
+                    query = query.ilike("author_normalized", f"%{author.strip().lower()}%")
             
             if work_type and work_type in ['literary', 'musical']:
                 query = query.eq("work_type", work_type)
             
-            # Order by most recent and limit results
-            response = query.order("created_at", desc=True).limit(limit).execute()
+            # Order by confidence score and recency for better results
+            response = query.order("confidence_score", desc=True).order("created_at", desc=True).limit(limit).execute()
             
             works = []
             if response.data:
@@ -109,7 +122,30 @@ class WorkRepository:
             
         except Exception as e:
             logger.error(f"Error searching works by content: {e}")
-            raise DatabaseError("search_by_content", str(e), e)
+            # Fallback to old method if normalized fields don't exist yet
+            return await self._fallback_search(title, author, work_type, limit)
+    
+    async def _fallback_search(self, title: Optional[str], author: Optional[str], work_type: Optional[str], limit: int) -> List[WorkCache]:
+        """Fallback search using original title/author fields for compatibility"""
+        try:
+            from ..database.config import supabase
+            query = supabase.table(self.table_name).select("*")
+            
+            if title:
+                safe_title = SQLInjectionProtector.sanitize_for_sql(title.strip())
+                query = query.ilike("title", f"%{safe_title}%")
+            if author:
+                safe_author = SQLInjectionProtector.sanitize_for_sql(author.strip())
+                query = query.ilike("author", f"%{safe_author}%")
+            if work_type:
+                query = query.eq("work_type", work_type)
+                
+            response = query.order("created_at", desc=True).limit(limit).execute()
+            
+            return [WorkCache(**work_data) for work_data in (response.data or [])]
+        except Exception as e:
+            logger.error(f"Fallback search failed: {e}")
+            return []
     
     async def get_popular_works(
         self, 
@@ -153,30 +189,69 @@ class WorkRepository:
     
     async def create_work(self, work: WorkCache) -> WorkCache:
         """
-        Create new work cache entry
+        Create new work cache entry with improved deduplication
         """
         try:
+            # Generate content hash manually for deduplication check
+            import hashlib
+            def generate_content_hash(title: str, author: str, pub_year: int):
+                def normalize_title(title):
+                    if not title:
+                        return ""
+                    import re
+                    normalized = re.sub(r'^(the|a|an)\s+', '', title.lower().strip(), flags=re.IGNORECASE)
+                    normalized = re.sub(r'[^a-zA-Z0-9\s]', '', normalized)
+                    normalized = re.sub(r'\s+', ' ', normalized).strip()
+                    return normalized
+                
+                def normalize_author(author):
+                    if not author:
+                        return ""
+                    import re
+                    # Handle "Last, First" format
+                    if ',' in author and not author.count(',') > 2:
+                        parts = author.split(',', 1)
+                        if len(parts) == 2:
+                            author = f"{parts[1].strip()} {parts[0].strip()}"
+                    
+                    normalized = re.sub(r'[^a-zA-Z0-9\s]', '', author.lower().strip())
+                    normalized = re.sub(r'\s+', ' ', normalized).strip()
+                    return normalized
+                
+                content = f"{normalize_title(title)}|{normalize_author(author)}|{pub_year or ''}"
+                return hashlib.sha256(content.encode()).hexdigest()
+            
+            # Generate content hash for deduplication
+            content_hash = generate_content_hash(work.title, work.author, work.publication_year)
+            
+            # Check for existing work by content hash
+            existing = await self.find_by_content_hash(content_hash)
+            if existing:
+                logger.info(f"Work already exists with content hash {content_hash[:10]}..., updating instead")
+                return await self.update_existing_work(existing.id, work)
+            
             # Set timestamps
             now = datetime.utcnow()
             expires_at = now + self.default_cache_duration
             
             work_data = {
-                "source_key": f"{work.source_api}:{work.source_id}",
                 "title": work.title,
                 "author": work.author,
                 "publication_year": work.publication_year,
                 "work_type": work.work_type,
+                "work_subtype": work.work_subtype,
                 "copyright_status": work.copyright_status,
-                "public_domain_date": work.public_domain_date,
+                "public_domain_year": work.effective_public_domain_year,
                 "source_api": work.source_api,
                 "source_id": work.source_id,
                 "raw_data": work.raw_data,
                 "processed_data": work.processed_data,
+                "confidence_score": work.confidence_score,
                 "cache_status": work.cache_status,
                 "expires_at": expires_at.isoformat()
+                # Note: normalized fields and content_hash will be auto-generated by database trigger
             }
             
-            from ..database.config import supabase
             from ..database.config import supabase
             response = supabase.table(self.table_name).insert(work_data).execute()
             
@@ -188,6 +263,47 @@ class WorkRepository:
         except Exception as e:
             logger.error(f"Error creating work: {e}")
             raise DatabaseError("create_work", str(e), e)
+    
+    async def update_existing_work(self, work_id: str, new_work: WorkCache) -> WorkCache:
+        """
+        Update existing work with new information, merging sources
+        """
+        try:
+            # Get current work
+            current = await self.find_by_id(work_id)
+            if not current:
+                raise NotFoundError("work", work_id)
+            
+            # Merge processed data, keeping both sources
+            merged_processed_data = {**current.processed_data, **new_work.processed_data}
+            
+            # Add new source to alternate sources if different
+            current_source_key = f"{current.source_api}:{current.source_id}"
+            new_source_key = f"{new_work.source_api}:{new_work.source_id}"
+            
+            if current_source_key != new_source_key:
+                alternate_sources = merged_processed_data.get("alternate_sources", [])
+                alternate_sources.append({
+                    "source_api": new_work.source_api,
+                    "source_id": new_work.source_id,
+                    "confidence_score": new_work.confidence_score
+                })
+                merged_processed_data["alternate_sources"] = alternate_sources
+            
+            updates = {
+                "copyright_status": new_work.copyright_status or current.copyright_status,
+                "public_domain_year": new_work.effective_public_domain_year or current.effective_public_domain_year,
+                "processed_data": merged_processed_data,
+                "confidence_score": max(current.confidence_score or 0.0, new_work.confidence_score or 0.0),
+                "cache_status": "fresh",
+                "expires_at": (datetime.utcnow() + self.default_cache_duration).isoformat()
+            }
+            
+            return await self.update_work(work_id, updates)
+            
+        except Exception as e:
+            logger.error(f"Error updating existing work {work_id}: {e}")
+            raise DatabaseError("update_existing_work", str(e), e)
     
     async def update_work(self, work_id: str, updates: Dict[str, Any]) -> WorkCache:
         """

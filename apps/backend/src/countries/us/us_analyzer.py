@@ -36,7 +36,7 @@ class USAnalyzer(BaseCountryAnalyzer):
         # Initialize metadata normalizer
         self.normalizer = MetadataNormalizer()
     
-    def analyze_work(
+    async def analyze_work(
         self, 
         title: str, 
         author: str, 
@@ -51,7 +51,9 @@ class USAnalyzer(BaseCountryAnalyzer):
         
         # Step 1: Query Library of Congress
         self._log_verbose("1. Querying Library of Congress...", verbose)
-        loc_response = self.api_clients['library_of_congress'].search_books(title, author)
+        loc_response = await self.api_clients['library_of_congress'].search_books(title, author)
+        # Clean up session after use
+        await self.api_clients['library_of_congress'].close_session()
         
         if verbose and loc_response.success:
             total_results = loc_response.data.get('total_results', 0) if loc_response.data else 0
@@ -65,7 +67,7 @@ class USAnalyzer(BaseCountryAnalyzer):
         
         if work_type in ["musical", "auto"]:
             self._log_verbose("2. Querying MusicBrainz for musical works...", verbose)
-            musicbrainz_response = self.api_clients['musicbrainz'].search_works(title, author)
+            musicbrainz_response = await self.api_clients['musicbrainz'].search_works(title, author)
             
             if verbose and musicbrainz_response.success:
                 works_count = len(musicbrainz_response.data.get('works', []) if musicbrainz_response.data else [])
@@ -75,7 +77,10 @@ class USAnalyzer(BaseCountryAnalyzer):
         
         # Always query MusicBrainz for artist details to get death dates (even for literary works)
         self._log_verbose("3. Querying MusicBrainz for artist details...", verbose)
-        musicbrainz_artist_response = self.api_clients['musicbrainz'].search_artists(author)
+        musicbrainz_artist_response = await self.api_clients['musicbrainz'].search_artists(author)
+        
+        # Clean up MusicBrainz session after all calls are done
+        await self.api_clients['musicbrainz'].close_session()
         if verbose and musicbrainz_artist_response.success:
             best_artist = musicbrainz_artist_response.data.get('best_match') if musicbrainz_artist_response.data else None
             if best_artist and best_artist.get('death_year'):
@@ -129,7 +134,7 @@ class USAnalyzer(BaseCountryAnalyzer):
         
         return work_record
     
-    def analyze_batch(self, works: List[tuple], verbose: bool = False) -> List[WorkRecord]:
+    async def analyze_batch(self, works: List[tuple], verbose: bool = False) -> List[WorkRecord]:
         """
         Analyze multiple works in batch
         """
@@ -140,7 +145,7 @@ class USAnalyzer(BaseCountryAnalyzer):
                 print(f"\n[{i}/{len(works)}] Processing: {title} by {author}")
             
             try:
-                result = self.analyze_work(title, author, verbose=verbose)
+                result = await self.analyze_work(title, author, verbose=verbose)
                 results.append(result)
             except Exception as e:
                 if verbose:

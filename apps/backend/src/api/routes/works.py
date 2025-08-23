@@ -56,10 +56,8 @@ async def get_popular_works(
             # Map work_type to category for frontend
             category = "Music" if work.work_type == "musical" else "Literature"
             
-            # Get actual public domain date
-            enters_pd = None
-            if work.public_domain_date and str(work.public_domain_date).isdigit():
-                enters_pd = int(work.public_domain_date)
+            # Get actual public domain date using improved method
+            enters_pd = work.effective_public_domain_year
             
             # Get source URL from processed data or generate fallback
             source_url = ""
