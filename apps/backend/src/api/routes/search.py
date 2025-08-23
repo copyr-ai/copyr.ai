@@ -113,7 +113,7 @@ async def search_works(
                 publication_year=cached_work.publication_year,
                 work_type=cached_work.work_type,
                 status=cached_work.copyright_status or "Unknown",
-                enters_public_domain=int(cached_work.public_domain_date) if cached_work.public_domain_date and cached_work.public_domain_date.isdigit() else None,
+                enters_public_domain=cached_work.effective_public_domain_year,
                 confidence_score=cached_work.processed_data.get('confidence_score', 0.8) if cached_work.processed_data else 0.8,
                 source=source_url
             ))
@@ -170,13 +170,20 @@ async def search_works(
                         if not is_match:
                             continue
                     
+                    # Extract publication year from raw data if not available
+                    publication_year = merged_work.get('publication_year')
+                    if not publication_year and 'raw_data' in merged_work:
+                        # Try to extract from nested data
+                        if isinstance(merged_work, dict) and merged_work.get('publication_year'):
+                            publication_year = merged_work['publication_year']
+                    
                     # Analyze work for copyright status
                     try:
                         # Import here to avoid circular dependency
                         from ...copyright_analyzer import CopyrightAnalyzer
                         copyright_analyzer = CopyrightAnalyzer("US")
                         
-                        analysis_result = copyright_analyzer.analyze_work(
+                        analysis_result = await copyright_analyzer.analyze_work(
                             title=merged_work.get("title", ""),
                             author=merged_work.get("author", ""),
                             work_type="auto",
@@ -188,46 +195,75 @@ async def search_works(
                         source_urls = merged_work.get('source_urls', [])
                         combined_source = ", ".join(source_urls) if source_urls else merged_work.get('url', '')
                         
+                        # Use publication year from API if analysis doesn't provide it
+                        effective_pub_year = analysis_result.publication_year or publication_year
+                        
                         results.append(SearchResultItem(
-                            title=analysis_result.title,
-                            author_name=analysis_result.author_name,
-                            publication_year=analysis_result.publication_year,
-                            work_type=analysis_result.work_type,
-                            status=analysis_result.status,
+                            title=analysis_result.title or merged_work.get("title", ""),
+                            author_name=analysis_result.author_name or merged_work.get("author", "Unknown"),
+                            publication_year=effective_pub_year,
+                            work_type=analysis_result.work_type or "musical",
+                            status=analysis_result.status or "Unknown", 
                             enters_public_domain=analysis_result.enters_public_domain,
-                            confidence_score=analysis_result.confidence_score,
+                            confidence_score=analysis_result.confidence_score or 0.5,
                             source=combined_source,
-                            work_type_confidence=analysis_result.work_type_confidence,
-                            classification_source=analysis_result.classification_source
+                            work_type_confidence=getattr(analysis_result, 'work_type_confidence', None),
+                            classification_source=getattr(analysis_result, 'classification_source', None)
                         ))
                         
                         # Cache the result for future use
                         try:
                             from ...database.models import WorkCache
                             work_cache = WorkCache(
-                                title=analysis_result.title,
-                                author=analysis_result.author_name,
-                                publication_year=analysis_result.publication_year,
-                                work_type=analysis_result.work_type,
-                                copyright_status=analysis_result.status,
-                                public_domain_date=str(analysis_result.enters_public_domain) if analysis_result.enters_public_domain else None,
+                                title=analysis_result.title or merged_work.get("title", ""),
+                                author=analysis_result.author_name or merged_work.get("author", "Unknown"),
+                                publication_year=effective_pub_year,
+                                work_type=analysis_result.work_type or "musical",
+                                copyright_status=analysis_result.status or "Unknown",
+                                public_domain_year=analysis_result.enters_public_domain,
                                 source_api=merged_work.get('api_source', 'unknown'),
-                                source_id=f"{analysis_result.title}_{analysis_result.author_name}".replace(' ', '_'),
+                                source_id=f"{merged_work.get('title', 'unknown')}_{merged_work.get('author', 'unknown')}".replace(' ', '_'),
                                 raw_data=merged_work,
                                 processed_data={
-                                    'confidence_score': analysis_result.confidence_score,
-                                    'source_links': {'primary_source': combined_source}
-                                }
+                                    'confidence_score': analysis_result.confidence_score or 0.5,
+                                    'source_links': {'primary_source': combined_source},
+                                    'work_type_confidence': getattr(analysis_result, 'work_type_confidence', None),
+                                    'classification_source': getattr(analysis_result, 'classification_source', None)
+                                },
+                                confidence_score=analysis_result.confidence_score or 0.5
                             )
                             
                             await work_repo.create_work(work_cache)
                             
                         except Exception as cache_error:
                             logger.warning(f"Failed to cache API result: {cache_error}")
+                            logger.error(f"Cache error details: {str(cache_error)}")
                     
                     except Exception as analysis_error:
-                        logger.warning(f"Failed to analyze work from API: {analysis_error}")
-                        continue
+                        logger.error(f"Failed to analyze work from API: {analysis_error}")
+                        # Create a basic result without full copyright analysis
+                        try:
+                            source_urls = merged_work.get('source_urls', [])
+                            combined_source = ", ".join(source_urls) if source_urls else merged_work.get('url', '')
+                            
+                            # Extract year from raw data if available
+                            pub_year = merged_work.get('publication_year')
+                            
+                            results.append(SearchResultItem(
+                                title=merged_work.get("title", ""),
+                                author_name=merged_work.get("author", "Unknown"),
+                                publication_year=pub_year,
+                                work_type="musical" if merged_work.get('api_source') == 'musicbrainz' else "literary",
+                                status="Unknown",
+                                enters_public_domain=None,
+                                confidence_score=0.3,  # Lower confidence for failed analysis
+                                source=combined_source,
+                                work_type_confidence=None,
+                                classification_source=None
+                            ))
+                        except Exception as fallback_error:
+                            logger.error(f"Fallback result creation failed: {fallback_error}")
+                            continue
                 
                 if results:
                     source = "mixed" if any(r.source.startswith("cache") for r in results) else "api"
@@ -330,7 +366,7 @@ async def get_popular_works_internal(
                 publication_year=work.publication_year,
                 work_type=work.work_type,
                 status=work.copyright_status or "Unknown",
-                enters_public_domain=int(work.public_domain_date) if work.public_domain_date and work.public_domain_date.isdigit() else None,
+                enters_public_domain=work.effective_public_domain_year,
                 confidence_score=work.processed_data.get('confidence_score', 0.8) if work.processed_data else 0.8,
                 source=f"https://catalog.loc.gov/search?q={work.title.replace(' ', '+')}"
             ))

@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import List
 
 from ..database.cache_manager import CacheManager
-from ..countries.us.api_clients.hathitrust import HathiTrustClient
+# from ..countries.us.api_clients.hathitrust import HathiTrustClient  # Removed
 from ..countries.us.api_clients.library_of_congress import LibraryOfCongressClient
 from ..countries.us.api_clients.musicbrainz import MusicBrainzClient
 
@@ -18,7 +18,7 @@ class BackgroundScheduler:
         self.scheduler = AsyncIOScheduler()
         self.cache_manager = CacheManager()
         self.api_clients = {
-            'hathitrust': HathiTrustClient(),
+            # 'hathitrust': HathiTrustClient(),  # Removed
             'library_of_congress': LibraryOfCongressClient(),
             'musicbrainz': MusicBrainzClient()
         }

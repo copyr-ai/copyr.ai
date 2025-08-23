@@ -36,7 +36,7 @@ async def api_status():
             "services": {
                 "copyright_analyzer": "ready",
                 "library_of_congress": "ready",
-                "hathitrust": "ready",
+                # "hathitrust": "ready",  # Removed
                 "musicbrainz": "ready"
             },
             "supported_countries": CopyrightAnalyzer.get_all_supported_countries(),

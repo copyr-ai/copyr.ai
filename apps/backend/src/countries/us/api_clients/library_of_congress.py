@@ -1,9 +1,9 @@
-import requests
+import aiohttp
 import json
 import xml.etree.ElementTree as ET
 from typing import Optional, Dict, Any, List
 from urllib.parse import quote
-import time
+import asyncio
 
 from ....models.work_record import APIResponse
 from ....core.base_api_client import BaseAPIClient
@@ -24,13 +24,41 @@ class LibraryOfCongressClient(BaseAPIClient):
     
     def __init__(self, rate_limit_delay: float = 1.0):
         super().__init__(rate_limit_delay)
-        self.session = requests.Session()
-        self.session.headers.update({
+        self.session: Optional[aiohttp.ClientSession] = None
+        self.timeout = aiohttp.ClientTimeout(total=30, connect=10)
+        self.headers = {
             'User-Agent': 'copyr.ai/1.0 (copyright research tool)',
             'Accept': 'application/json'
-        })
+        }
     
-    def search_books(self, title: str, author: str) -> APIResponse:
+    async def _async_rate_limit(self):
+        """Async rate limiting using asyncio.sleep"""
+        import time
+        elapsed = time.time() - self.last_request_time
+        if elapsed < self.rate_limit_delay:
+            await asyncio.sleep(self.rate_limit_delay - elapsed)
+        self.last_request_time = time.time()
+    
+    async def get_session(self, external_session: Optional[aiohttp.ClientSession] = None) -> aiohttp.ClientSession:
+        """Get or create aiohttp session"""
+        # Use external session if provided (preferred)
+        if external_session and not external_session.closed:
+            return external_session
+            
+        # Otherwise use our own session
+        if self.session is None or self.session.closed:
+            self.session = aiohttp.ClientSession(
+                timeout=self.timeout,
+                headers=self.headers
+            )
+        return self.session
+    
+    async def close_session(self):
+        """Close aiohttp session"""
+        if self.session and not self.session.closed:
+            await self.session.close()
+    
+    async def search_books(self, title: str, author: str, session: Optional[aiohttp.ClientSession] = None) -> APIResponse:
         """
         Search for books using Library of Congress SRU API with CQL
         
@@ -41,7 +69,7 @@ class LibraryOfCongressClient(BaseAPIClient):
         Returns:
             APIResponse with search results
         """
-        self._rate_limit()
+        await self._async_rate_limit()
         
         # Construct CQL query using proper bibliographic indexes
         cql_parts = []
@@ -75,13 +103,15 @@ class LibraryOfCongressClient(BaseAPIClient):
         }
         
         try:
-            response = self.session.get(self.SRU_BASE_URL, params=params, timeout=30)
-            response.raise_for_status()
-            
-            source_url = response.url
-            
-            # Parse XML response
-            parsed_results = self._parse_sru_response(response.text, title, author)
+            client_session = await self.get_session(session)
+            async with client_session.get(self.SRU_BASE_URL, params=params) as response:
+                response.raise_for_status()
+                
+                source_url = str(response.url)
+                response_text = await response.text()
+                
+                # Parse XML response
+                parsed_results = self._parse_sru_response(response_text, title, author)
             
             return APIResponse(
                 success=True,
@@ -90,7 +120,7 @@ class LibraryOfCongressClient(BaseAPIClient):
                 confidence=self._calculate_sru_confidence(parsed_results, title, author)
             )
             
-        except requests.exceptions.RequestException as e:
+        except aiohttp.ClientError as e:
             return APIResponse(
                 success=False,
                 error=f"LOC SRU API request failed: {str(e)}",
@@ -471,31 +501,31 @@ class LibraryOfCongressClient(BaseAPIClient):
         
         return best_score
     
-    def search_by_author(self, author: str, limit: int = 5) -> List[Dict[str, Any]]:
+    async def search_by_author(self, author: str, limit: int = 5, session: Optional[aiohttp.ClientSession] = None) -> List[Dict[str, Any]]:
         """Search for works by author only"""
         if not author or not author.strip():
             return []
-        response = self.search_books("", author)
+        response = await self.search_books("", author, session)
         if response.success and response.data:
             matches = response.data.get('relevant_matches', response.data.get('matches', []))
             return [self._format_work_result(match) for match in matches[:limit]]
         return []
     
-    def search_by_title(self, title: str, limit: int = 5) -> List[Dict[str, Any]]:
+    async def search_by_title(self, title: str, limit: int = 5, session: Optional[aiohttp.ClientSession] = None) -> List[Dict[str, Any]]:
         """Search for works by title only"""
         if not title or not title.strip():
             return []
-        response = self.search_books(title, "")
+        response = await self.search_books(title, "", session)
         if response.success and response.data:
             matches = response.data.get('relevant_matches', response.data.get('matches', []))
             return [self._format_work_result(match) for match in matches[:limit]]
         return []
     
-    def search_by_title_and_author(self, title: str, author: str, limit: int = 5) -> List[Dict[str, Any]]:
+    async def search_by_title_and_author(self, title: str, author: str, limit: int = 5, session: Optional[aiohttp.ClientSession] = None) -> List[Dict[str, Any]]:
         """Search for works by both title and author"""
         if not title or not author or not title.strip() or not author.strip():
             return []
-        response = self.search_books(title, author)
+        response = await self.search_books(title, author, session)
         if response.success and response.data:
             matches = response.data.get('relevant_matches', response.data.get('matches', []))
             return [self._format_work_result(match) for match in matches[:limit]]
@@ -512,18 +542,18 @@ class LibraryOfCongressClient(BaseAPIClient):
             'source': 'library_of_congress'
         }
 
-    def get_item_details(self, item_url: str) -> APIResponse:
+    async def get_item_details(self, item_url: str) -> APIResponse:
         """Get detailed information about a specific LOC item"""
-        self._rate_limit()
+        await self._async_rate_limit()
         
         try:
             # Add JSON format parameter
             detail_url = f"{item_url}?fo=json"
             
-            response = self.session.get(detail_url, timeout=30)
-            response.raise_for_status()
-            
-            data = response.json()
+            session = await self.get_session()
+            async with session.get(detail_url) as response:
+                response.raise_for_status()
+                data = await response.json()
             
             return APIResponse(
                 success=True,
@@ -532,7 +562,7 @@ class LibraryOfCongressClient(BaseAPIClient):
                 confidence=0.8
             )
             
-        except requests.exceptions.RequestException as e:
+        except aiohttp.ClientError as e:
             return APIResponse(
                 success=False,
                 error=f"LOC detail request failed: {str(e)}",

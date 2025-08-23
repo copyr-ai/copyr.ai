@@ -14,7 +14,7 @@ class BaseCountryAnalyzer(ABC):
         self.config = {}
     
     @abstractmethod
-    def analyze_work(
+    async def analyze_work(
         self, 
         title: str, 
         author: str, 
@@ -36,7 +36,7 @@ class BaseCountryAnalyzer(ABC):
         pass
     
     @abstractmethod
-    def analyze_batch(self, works: List[tuple], verbose: bool = False) -> List[WorkRecord]:
+    async def analyze_batch(self, works: List[tuple], verbose: bool = False) -> List[WorkRecord]:
         """
         Analyze multiple works in batch
         
